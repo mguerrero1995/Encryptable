@@ -1,10 +1,12 @@
 import sys
 import os
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QIcon, QPixmap
+from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLineEdit, QPushButton, QLabel, QMessageBox, QInputDialog, QDialog, QHBoxLayout, QPushButton, QFileDialog
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
-from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLineEdit, QPushButton, QLabel, QMessageBox, QInputDialog
 
 
 # Generate a key from the password
@@ -49,15 +51,57 @@ def decrypt_file(file_path, password):
     with open(file_path, 'wb') as f:
         f.write(plaintext)
 
-import sys
-import os
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.backends import default_backend
-from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLineEdit, QPushButton, QLabel, QMessageBox
 
-# [Previous code functions: key_from_password, encrypt_file, decrypt_file]
+
+class PasswordDialog(QDialog):
+    def __init__(self, mode, parent=None):
+        super(PasswordDialog, self).__init__(parent)
+        
+        self.mode = mode  # Store the operation mode (Encrypt or Decrypt)
+
+        self.setWindowTitle("Enter Password")
+        
+        self.layout = QVBoxLayout()  # Main layout
+        
+        # Password input field and Eyeball icon layout
+        self.input_layout = QHBoxLayout()
+        
+        # Password input field
+        self.password_input = QLineEdit(self)
+        self.input_layout.addWidget(self.password_input)
+        
+        # Eyeball button for toggling password visibility
+        self.show_icon = QIcon(QPixmap("C:/Users/mguerrero/source/repos/FileAccessPro/icons/show_password_icon.png"))
+        self.hide_icon = QIcon(QPixmap("C:/Users/mguerrero/source/repos/FileAccessPro/icons/hide_password_icon.png"))
+        self.toggle_password_btn = QPushButton(self)
+        self.toggle_password_btn.setIcon(self.show_icon)  
+        self.toggle_password_btn.setFixedSize(30, 30)  # Fixed size for the icon button
+        self.toggle_password_btn.setCheckable(True)
+        self.toggle_password_btn.clicked.connect(self.toggle_password_visibility)
+        self.input_layout.addWidget(self.toggle_password_btn)
+
+        self.layout.addLayout(self.input_layout)
+
+        # Encrypt/Decrypt action button
+        self.action_btn = QPushButton(self.mode, self)
+        self.action_btn.clicked.connect(self.accept)
+        self.layout.addWidget(self.action_btn)
+        self.layout.setAlignment(self.action_btn, Qt.AlignmentFlag.AlignCenter)  # Center-align the button
+        
+        self.setLayout(self.layout)
+
+    def toggle_password_visibility(self, checked):
+        if checked:
+            self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
+            self.toggle_password_btn.setIcon(self.hide_icon)  # set to hide icon when password is visible
+        else:
+            self.password_input.setEchoMode(QLineEdit.EchoMode.Normal)
+            self.toggle_password_btn.setIcon(self.show_icon)  # set back to show icon when password is hidden
+    
+    def get_password(self):
+        return self.password_input.text()
+
+
 
 class App(QWidget):
     def __init__(self):
@@ -66,32 +110,71 @@ class App(QWidget):
         self.initUI()
 
     def initUI(self):
-        layout = QVBoxLayout()
+        main_layout = QVBoxLayout()
 
+        # Label
         self.file_path_label = QLabel("Enter File Path:")
+        main_layout.addWidget(self.file_path_label)
+        main_layout.setAlignment(self.file_path_label, Qt.AlignmentFlag.AlignLeft)
+
+        # File Path input field and Browse button layout
+        path_layout = QHBoxLayout()
+
         self.file_path_input = QLineEdit(self)
+        self.file_path_input.setFixedWidth(400)
+        path_layout.addWidget(self.file_path_input)
+        path_layout.setAlignment(self.file_path_input, Qt.AlignmentFlag.AlignLeft)
 
+        # Browse button
+        self.browse_button = QPushButton('Browse', self)
+        self.browse_button.clicked.connect(self.browse_file)
+        self.browse_button.setFixedWidth(60)
+        path_layout.addWidget(self.browse_button)
+        path_layout.setAlignment(self.browse_button, Qt.AlignmentFlag.AlignLeft)
+
+        # Add a horizontal stretch after the Browse button
+        path_layout.addStretch(1)
+
+        main_layout.addLayout(path_layout)
+
+    
+        # Encrypt button
         self.encrypt_button = QPushButton('Encrypt', self)
+        self.encrypt_button.setFixedWidth(55)
         self.encrypt_button.clicked.connect(self.encrypt_clicked)
+        main_layout.addWidget(self.encrypt_button)
+        main_layout.setAlignment(self.encrypt_button, Qt.AlignmentFlag.AlignLeft)
 
+        # Decrypt button
         self.decrypt_button = QPushButton('Decrypt', self)
+        self.decrypt_button.setFixedWidth(55)
         self.decrypt_button.clicked.connect(self.decrypt_clicked)
+        main_layout.addWidget(self.decrypt_button)
+        main_layout.setAlignment(self.decrypt_button, Qt.AlignmentFlag.AlignLeft)
 
-        layout.addWidget(self.file_path_label)
-        layout.addWidget(self.file_path_input)
-        layout.addWidget(self.encrypt_button)
-        layout.addWidget(self.decrypt_button)
+        # Set fixed spacing between widgets
+        main_layout.setSpacing(20)
 
-        self.setLayout(layout)
+        # Spacer to occupy any additional vertical space
+        main_layout.addStretch(1)
+
+        self.setLayout(main_layout)
         self.setWindowTitle(self.title)
+        self.resize(600, 750)
         self.show()
+
+    def browse_file(self):
+        # Open a file dialog and set the selected file path to the input field
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select File")
+        if file_path:
+            self.file_path_input.setText(file_path)
 
     def encrypt_clicked(self):
         file_path = self.file_path_input.text()
         if not file_path:
             self.show_message("Error", "Please enter a file path.")
             return
-        password = self.get_password()
+        password = self.get_password("Encrypt")  # Pass the mode as an argument
         if not password:
             return
         try:
@@ -105,7 +188,7 @@ class App(QWidget):
         if not file_path:
             self.show_message("Error", "Please enter a file path.")
             return
-        password = self.get_password()
+        password = self.get_password("Decrypt")  # Pass the mode as an argument
         if not password:
             return
         try:
@@ -114,17 +197,12 @@ class App(QWidget):
         except Exception as e:
             self.show_message("Error", str(e))
 
-    def get_password(self):
-        password_input = QInputDialog(self)
-        password_input.setInputMode(QInputDialog.InputMode.TextInput)
-        password_input.setTextEchoMode(QLineEdit.EchoMode.Password)  # Set echo mode to Password
-        password_input.setWindowTitle("Password")
-        password_input.setLabelText("Enter the password:")
-        ok = password_input.exec()
-        if ok:
-            return password_input.textValue()
+    def get_password(self, mode):  # Added 'mode' parameter
+        password_dialog = PasswordDialog(mode, self)  # Pass the mode to the dialog
+        result = password_dialog.exec()
+        if result == QDialog.DialogCode.Accepted:
+            return password_dialog.get_password()
         return None
-
 
     def show_message(self, title, message):
         msg = QMessageBox(self)
