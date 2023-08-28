@@ -1,8 +1,8 @@
 import sys
 import os
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QMimeData
 from PyQt6.QtGui import QIcon, QPixmap
-from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLineEdit, QPushButton, QLabel, QMessageBox, QInputDialog, QDialog, QHBoxLayout, QPushButton, QFileDialog
+from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLineEdit, QPushButton, QLabel, QMessageBox, QInputDialog, QDialog, QHBoxLayout, QPushButton, QFileDialog, QFrame
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -68,6 +68,7 @@ class PasswordDialog(QDialog):
         
         # Password input field
         self.password_input = QLineEdit(self)
+        self.password_input.setEchoMode(QLineEdit.EchoMode.Password)  # Set default to hidden password
         self.input_layout.addWidget(self.password_input)
         
         # Eyeball button for toggling password visibility
@@ -92,15 +93,35 @@ class PasswordDialog(QDialog):
 
     def toggle_password_visibility(self, checked):
         if checked:
-            self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
+            self.password_input.setEchoMode(QLineEdit.EchoMode.Normal)
             self.toggle_password_btn.setIcon(self.hide_icon)  # set to hide icon when password is visible
         else:
-            self.password_input.setEchoMode(QLineEdit.EchoMode.Normal)
+            self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
             self.toggle_password_btn.setIcon(self.show_icon)  # set back to show icon when password is hidden
     
     def get_password(self):
         return self.password_input.text()
 
+
+
+class DropZone(QLabel):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAcceptDrops(True)
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.setFrameStyle(QFrame.Shape.Box | QFrame.Shadow.Sunken)
+        self.setStyleSheet("background-color: #E0E0E0;")
+        self.setFixedHeight(50)
+        self.setText("Drop File Here")
+
+    def dragEnterEvent(self, event):
+        mime_data = event.mimeData()
+        if mime_data.hasUrls() and len(mime_data.urls()) == 1:  # Only accept one file
+            event.acceptProposedAction()
+
+    def dropEvent(self, event):
+        file_path = event.mimeData().urls()[0].toLocalFile()  # Get the file path
+        self.parent().file_path_input.setText(file_path)  # Update the QLineEdit with the file path
 
 
 class App(QWidget):
@@ -112,14 +133,16 @@ class App(QWidget):
     def initUI(self):
         main_layout = QVBoxLayout()
 
+
         # Label
-        self.file_path_label = QLabel("Enter File Path:")
+        self.file_path_label = QLabel("Enter File Path or Drag & Drop File:")
         main_layout.addWidget(self.file_path_label)
         main_layout.setAlignment(self.file_path_label, Qt.AlignmentFlag.AlignLeft)
 
         # File Path input field and Browse button layout
         path_layout = QHBoxLayout()
 
+        # Input field for the file path
         self.file_path_input = QLineEdit(self)
         self.file_path_input.setFixedWidth(400)
         path_layout.addWidget(self.file_path_input)
@@ -137,6 +160,9 @@ class App(QWidget):
 
         main_layout.addLayout(path_layout)
 
+        # Drag and Drop area
+        self.drop_zone = DropZone(self)
+        main_layout.addWidget(self.drop_zone)
     
         # Encrypt button
         self.encrypt_button = QPushButton('Encrypt', self)
@@ -152,6 +178,7 @@ class App(QWidget):
         main_layout.addWidget(self.decrypt_button)
         main_layout.setAlignment(self.decrypt_button, Qt.AlignmentFlag.AlignLeft)
 
+
         # Set fixed spacing between widgets
         main_layout.setSpacing(20)
 
@@ -162,6 +189,7 @@ class App(QWidget):
         self.setWindowTitle(self.title)
         self.resize(600, 750)
         self.show()
+    
 
     def browse_file(self):
         # Open a file dialog and set the selected file path to the input field
