@@ -137,46 +137,57 @@ class App(QWidget):
         # Label
         self.file_path_label = QLabel("Enter File Path or Drag & Drop File:")
         main_layout.addWidget(self.file_path_label)
-        main_layout.setAlignment(self.file_path_label, Qt.AlignmentFlag.AlignLeft)
+        main_layout.setAlignment(self.file_path_label, Qt.AlignmentFlag.AlignCenter)
+
 
         # File Path input field and Browse button layout
         path_layout = QHBoxLayout()
+
+        path_layout.addStretch()
 
         # Input field for the file path
         self.file_path_input = QLineEdit(self)
         self.file_path_input.setFixedWidth(400)
         path_layout.addWidget(self.file_path_input)
-        path_layout.setAlignment(self.file_path_input, Qt.AlignmentFlag.AlignLeft)
+        path_layout.setAlignment(self.file_path_input, Qt.AlignmentFlag.AlignCenter)
 
         # Browse button
         self.browse_button = QPushButton('Browse', self)
         self.browse_button.clicked.connect(self.browse_file)
         self.browse_button.setFixedWidth(60)
         path_layout.addWidget(self.browse_button)
-        path_layout.setAlignment(self.browse_button, Qt.AlignmentFlag.AlignLeft)
+        path_layout.setAlignment(self.browse_button, Qt.AlignmentFlag.AlignCenter)
 
         # Add a horizontal stretch after the Browse button
-        path_layout.addStretch(1)
+        path_layout.addStretch()
 
         main_layout.addLayout(path_layout)
 
         # Drag and Drop area
+        drop_zone_layout = QHBoxLayout()
+        drop_zone_layout.addStretch() # Add a stretch before the drop zone so that it stays centered when the window expands
         self.drop_zone = DropZone(self)
-        main_layout.addWidget(self.drop_zone)
-    
+        self.drop_zone.setFixedWidth(650)  # Set the maximum width
+        drop_zone_layout.addWidget(self.drop_zone)
+        drop_zone_layout.addStretch() # Add a stretch after the drop zone so that it stays centered when the window expands
+
+        main_layout.addLayout(drop_zone_layout)
+
+        # main_layout.addWidget(self.drop_zone)
+        
         # Encrypt button
         self.encrypt_button = QPushButton('Encrypt', self)
         self.encrypt_button.setFixedWidth(55)
         self.encrypt_button.clicked.connect(self.encrypt_clicked)
         main_layout.addWidget(self.encrypt_button)
-        main_layout.setAlignment(self.encrypt_button, Qt.AlignmentFlag.AlignLeft)
+        main_layout.setAlignment(self.encrypt_button, Qt.AlignmentFlag.AlignCenter)
 
         # Decrypt button
         self.decrypt_button = QPushButton('Decrypt', self)
         self.decrypt_button.setFixedWidth(55)
         self.decrypt_button.clicked.connect(self.decrypt_clicked)
         main_layout.addWidget(self.decrypt_button)
-        main_layout.setAlignment(self.decrypt_button, Qt.AlignmentFlag.AlignLeft)
+        main_layout.setAlignment(self.decrypt_button, Qt.AlignmentFlag.AlignCenter)
 
 
         # Set fixed spacing between widgets
