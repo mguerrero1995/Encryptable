@@ -28,17 +28,21 @@ def encrypt_file(file_path, password):
     cipher = Cipher(algorithms.AES(key), modes.CFB(iv), backend=default_backend())
     encryptor = cipher.encryptor()
     
-    with open(file_path, 'rb') as f:
+    with open(file_path, "rb") as f:
         plaintext = f.read()
     
     ciphertext = encryptor.update(plaintext) + encryptor.finalize()
     
-    with open(file_path, 'wb') as f:
+    encrypted_file_path = file_path + ".cyph"
+    with open(encrypted_file_path, "wb") as f:
         f.write(salt + iv + ciphertext)
+
+    # Optionally delete the original file after encryption
+    os.remove(file_path)
 
 # Decrypt the file
 def decrypt_file(file_path, password):
-    with open(file_path, 'rb') as f:
+    with open(file_path, "rb") as f:
         salt = f.read(16)
         iv = f.read(16)
         ciphertext = f.read()
@@ -48,8 +52,13 @@ def decrypt_file(file_path, password):
     decryptor = cipher.decryptor()
     plaintext = decryptor.update(ciphertext) + decryptor.finalize()
     
-    with open(file_path, 'wb') as f:
+    # Remove custom extension to restore original file extension
+    decrypted_file_path = file_path.rstrip(".cyph")
+    with open(decrypted_file_path, "wb") as f:
         f.write(plaintext)
+    
+    # Optionally delete the encrypted file after decryption
+    os.remove(file_path)
 
 
 
@@ -127,7 +136,7 @@ class DropZone(QLabel):
 class App(QWidget):
     def __init__(self):
         super().__init__()
-        self.title = 'File Encryption'
+        self.title = "File Encryption"
         self.initUI()
 
     def initUI(self):
@@ -152,7 +161,7 @@ class App(QWidget):
         path_layout.setAlignment(self.file_path_input, Qt.AlignmentFlag.AlignCenter)
 
         # Browse button
-        self.browse_button = QPushButton('Browse', self)
+        self.browse_button = QPushButton("Browse", self)
         self.browse_button.clicked.connect(self.browse_file)
         self.browse_button.setFixedWidth(60)
         path_layout.addWidget(self.browse_button)
@@ -176,14 +185,14 @@ class App(QWidget):
         # main_layout.addWidget(self.drop_zone)
         
         # Encrypt button
-        self.encrypt_button = QPushButton('Encrypt', self)
+        self.encrypt_button = QPushButton("Encrypt", self)
         self.encrypt_button.setFixedWidth(55)
         self.encrypt_button.clicked.connect(self.encrypt_clicked)
         main_layout.addWidget(self.encrypt_button)
         main_layout.setAlignment(self.encrypt_button, Qt.AlignmentFlag.AlignCenter)
 
         # Decrypt button
-        self.decrypt_button = QPushButton('Decrypt', self)
+        self.decrypt_button = QPushButton("Decrypt", self)
         self.decrypt_button.setFixedWidth(55)
         self.decrypt_button.clicked.connect(self.decrypt_clicked)
         main_layout.addWidget(self.decrypt_button)
@@ -236,7 +245,7 @@ class App(QWidget):
         except Exception as e:
             self.show_message("Error", str(e))
 
-    def get_password(self, mode):  # Added 'mode' parameter
+    def get_password(self, mode):  # Added "mode" parameter
         password_dialog = PasswordDialog(mode, self)  # Pass the mode to the dialog
         result = password_dialog.exec()
         if result == QDialog.DialogCode.Accepted:
@@ -249,7 +258,7 @@ class App(QWidget):
         msg.setText(message)
         msg.exec()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app = QApplication(sys.argv)
     ex = App()
     sys.exit(app.exec())
