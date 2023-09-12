@@ -222,7 +222,12 @@ class App(QWidget):
         if not file_path:
             self.show_message("Error", "Please enter a file path.")
             return
+        elif os.path.splitext(file_path)[1] == ".cyph": # Check if the file is already encrypted (i.e has custom ".cyph" extension)
+            self.show_message("Error", "File is already encrypted. Please provide an unencrypted file.")
+            return
+        
         password = self.get_password("Encrypt")  # Pass the mode as an argument
+        
         if not password:
             return
         try:
@@ -236,7 +241,13 @@ class App(QWidget):
         if not file_path:
             self.show_message("Error", "Please enter a file path.")
             return
+        elif os.path.splitext(file_path)[1] != ".cyph": # Check if the file was encrypted by the app (i.e has custom ".cyph" extension)
+            self.show_message("Error", f"The file {file_path} is not encrypted or was not encrypted by this application.\n" 
+                                        "\nPlease provide a file with a `.cyph` extension.")
+            return
+        
         password = self.get_password("Decrypt")  # Pass the mode as an argument
+
         if not password:
             return
         try:
