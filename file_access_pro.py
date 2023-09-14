@@ -2,7 +2,7 @@ import sys
 import os
 from PyQt6.QtCore import Qt, QMimeData
 from PyQt6.QtGui import QIcon, QPixmap
-from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLineEdit, QPushButton, QLabel, QMessageBox, QInputDialog, QDialog, QHBoxLayout, QPushButton, QFileDialog, QFrame
+from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLineEdit, QPushButton, QLabel, QMessageBox, QDialog, QHBoxLayout, QPushButton, QFileDialog, QFrame
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -81,8 +81,8 @@ class PasswordDialog(QDialog):
         self.input_layout.addWidget(self.password_input)
         
         # Eyeball button for toggling password visibility
-        self.show_icon = QIcon(QPixmap("C:/Users/mguerrero/source/repos/FileAccessPro/icons/show_password_icon.png"))
-        self.hide_icon = QIcon(QPixmap("C:/Users/mguerrero/source/repos/FileAccessPro/icons/hide_password_icon.png"))
+        self.show_icon = QIcon(QPixmap("https://github.com/mguerrero1995/FileAccessPro/tree/main/icons/show_password_icon.png"))
+        self.hide_icon = QIcon(QPixmap("https://github.com/mguerrero1995/FileAccessPro/tree/main/icons/hide_password_icon.png"))
         self.toggle_password_btn = QPushButton(self)
         self.toggle_password_btn.setIcon(self.show_icon)  
         self.toggle_password_btn.setFixedSize(30, 30)  # Fixed size for the icon button
