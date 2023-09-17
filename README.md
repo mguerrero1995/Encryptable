@@ -39,7 +39,6 @@ FileAccessPro is an open-source, free-to-use desktop application designed to off
 - **Drag and Drop:** Easily add files for encryption or decryption using a drag-and-drop interface.
 - **Custom File Extensions:** Encrypted files are given a custom extension to prevent double encryption and facilitate easy identification.
 - **Graphical User Interface (GUI):** A user-friendly GUI built with PyQt6 for seamless user experience.
-- **Password Visibility Toggle:** While entering the password, toggle the visibility to prevent any mistakes.
 
 ## How to Use
 
