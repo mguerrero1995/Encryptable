@@ -279,6 +279,7 @@ class App(QWidget):
         password_dialog = PasswordDialog(mode, self)  # Pass the mode to the dialog
         result = password_dialog.exec()
         if result == QDialog.DialogCode.Accepted:
+            self.file_path_input.clear()
             return password_dialog.get_password()
         return None
 
