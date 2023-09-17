@@ -4,6 +4,17 @@
 **Email:** mmguerrero1995@gmail.com
 **Date:** September 23, 2023  
 **Version:** 1.0.0  
+**Status:** Alpha / Development Stage
+
+---
+
+## ⚠️ Warning
+
+This application is currently in its alpha/development stage. While we strive to develop a robust and secure file encryption tool, the application may contain bugs that could potentially lead to loss of data. 
+
+**Users are solely responsible for any files that become irrecoverable due to use or misuse of FileAccessPro. It is highly recommended to exercise caution when using the application in its current state, including maintaining backups of all files to be encrypted or decrypted.**
+
+We appreciate your understanding and welcome feedback and reports of any issues you encounter during use.
 
 ---
 
