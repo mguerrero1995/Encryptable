@@ -122,7 +122,7 @@ class DropZone(QLabel):
         self.setFrameStyle(QFrame.Shape.Box | QFrame.Shadow.Sunken)
         self.setStyleSheet("background-color: #E0E0E0;")
         self.setFixedHeight(50)
-        self.setText("Drop File Here")
+        self.setText("Drop File(s) Here")
 
     def dragEnterEvent(self, event):
         mime_data = event.mimeData()
@@ -148,7 +148,7 @@ class App(QWidget):
 
 
         # Label
-        self.file_path_label = QLabel("Enter File Path or Drag & Drop File:")
+        self.file_path_label = QLabel("Enter File Path(s) or Drag & Drop File(s):")
         main_layout.addWidget(self.file_path_label)
         main_layout.setAlignment(self.file_path_label, Qt.AlignmentFlag.AlignCenter)
 
