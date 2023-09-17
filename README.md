@@ -1,6 +1,7 @@
 # FileAccessPro
 
 **Developer:** Manny Guerrero  
+**Email:** mmguerrero1995@gmail.com
 **Date:** September 23, 2023  
 **Version:** 1.0.0  
 

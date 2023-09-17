@@ -126,12 +126,15 @@ class DropZone(QLabel):
 
     def dragEnterEvent(self, event):
         mime_data = event.mimeData()
-        if mime_data.hasUrls() and len(mime_data.urls()) == 1:  # Only accept one file
+        if mime_data.hasUrls():  # Allow multiple files
             event.acceptProposedAction()
 
     def dropEvent(self, event):
-        file_path = event.mimeData().urls()[0].toLocalFile()  # Get the file path
-        self.parent().file_path_input.setText(file_path)  # Update the QLineEdit with the file path
+        mime_data = event.mimeData()
+        file_paths = [url.toLocalFile() for url in mime_data.urls()]  # Get all file paths
+        formatted_paths = ",".join(f'"{path}"' for path in file_paths)  # Format paths
+        self.parent().file_path_input.setText(formatted_paths)  # Update the QLineEdit with the formatted file paths
+
 
 
 class App(QWidget):
