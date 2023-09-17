@@ -1,6 +1,8 @@
 import sys
 import os
 import re
+import struct
+import time
 from PyQt6.QtCore import Qt, QMimeData
 from PyQt6.QtGui import QIcon, QPixmap
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLineEdit, QPushButton, QLabel, QMessageBox, QDialog, QHBoxLayout, QPushButton, QFileDialog, QFrame
@@ -8,6 +10,10 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
+
+# Configurations for app
+SIGNATURE = b'FAP_ENC'  # Your unique file signature, converted to bytes
+HEADER_ADDITIONAL_LENGTH = 5  # The length of the additional header information, in bytes
 
 
 # Generate a key from the password
@@ -33,8 +39,11 @@ def encrypt_file(file_path, password):
         plaintext = f.read()
     
      # Adding a known signature at the start of the file
-    signature = b'MY_KNOWN_SIGNATURE'
-    plaintext = signature + plaintext
+    signature = SIGNATURE
+    version = 1
+    timestamp = int(time.time())
+    header = signature + struct.pack('B', version) + struct.pack('I', timestamp)
+    plaintext = header + plaintext
     
     ciphertext = encryptor.update(plaintext) + encryptor.finalize()
     
@@ -58,11 +67,20 @@ def decrypt_file(file_path, password):
         decryptor = cipher.decryptor()
         plaintext = decryptor.update(ciphertext) + decryptor.finalize()
         
-        signature = b'MY_KNOWN_SIGNATURE'
-        if plaintext[:len(signature)] != signature:
-            raise ValueError("Incorrect password provided for file: " + file_path)
+        signature = SIGNATURE
 
-        plaintext = plaintext[len(signature):]
+         # Step 2: Separating the header from the content
+        signature_in_file = plaintext[:len(signature)]
+
+        # Potential future header data for more advanced features
+        # version_in_file = struct.unpack('B', plaintext[len(signature):len(signature) + 1])
+        # timestamp_in_file = struct.unpack('I', plaintext[len(signature) + 1:len(signature) + HEADER_ADDITIONAL_LENGTH])
+
+        # Step 3: Verifying the header
+        if signature_in_file != signature:
+            raise ValueError("Incorrect password or not a file encrypted by this application.")
+
+        plaintext = plaintext[len(signature) + HEADER_ADDITIONAL_LENGTH:]
 
         # Remove custom extension to restore original file extension
         decrypted_file_path = file_path.rstrip(".cyph")
@@ -74,7 +92,7 @@ def decrypt_file(file_path, password):
         os.remove(file_path)
 
     except: 
-        raise ValueError(f"Decryption failed for {file_path} due to incorrect password")
+        raise ValueError(f"Decryption failed for {file_path} due to an incorrect password.")
 
 
 
@@ -250,7 +268,7 @@ class App(QWidget):
         else:
             for fl in fls:
                 if os.path.splitext(fl)[1] == ".cyph": # Check if the file is already encrypted (i.e has custom ".cyph" extension)
-                    self.show_message("Error", f"{fl} is already encrypted. Please all select files are unencrypted.")
+                    self.show_message("Error", f"{fl} is already encrypted. Please ensure that all selected files are unencrypted.")
                     return
         
         password_dialog = PasswordDialog("Encrypt", self)
@@ -264,7 +282,7 @@ class App(QWidget):
         try:
             for fl in fls:
                 encrypt_file(fl, password)
-            self.show_message("Success", "All files have been encrypted.")
+            self.show_message("Success", "All files have been successfully encrypted.")
             self.file_path_input.clear()
         except Exception as e:
             self.show_message("Error", str(e))
@@ -292,15 +310,22 @@ class App(QWidget):
         
         try:
             for fl in fls:
-                try:
-                    decrypt_file(fl, password)
-                except ValueError as e:
-                    self.show_message("Error", f"Decryption failed for file {fl}. Incorrect password.")
-                    return
-            self.show_message("Success", "All files have been decrypted.")
+                decrypt_file(fl, password)
+            self.show_message("Success", "All files have been successfully decrypted.")
             self.file_path_input.clear()
         except Exception as e:
             self.show_message("Error", str(e))
+        # try:
+        #     for fl in fls:
+        #         try:
+        #             decrypt_file(fl, password)
+        #         except ValueError as e:
+        #             self.show_message("Error", f"Decryption failed for file {fl}. Incorrect password.")
+        #             return
+        #     self.show_message("Success", "All files have been successfully decrypted.")
+        #     self.file_path_input.clear()
+        # except Exception as e:
+        #     self.show_message("Error", str(e))
 
 
     # def get_password(self, mode):  # Added "mode" parameter
