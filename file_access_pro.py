@@ -315,19 +315,8 @@ class App(QWidget):
             self.file_path_input.clear()
         except Exception as e:
             self.show_message("Error", str(e))
-        # try:
-        #     for fl in fls:
-        #         try:
-        #             decrypt_file(fl, password)
-        #         except ValueError as e:
-        #             self.show_message("Error", f"Decryption failed for file {fl}. Incorrect password.")
-        #             return
-        #     self.show_message("Success", "All files have been successfully decrypted.")
-        #     self.file_path_input.clear()
-        # except Exception as e:
-        #     self.show_message("Error", str(e))
 
-
+    # Do I want to replace this logic in the encrypt/decrypt_clicked function with this method?
     # def get_password(self, mode):  # Added "mode" parameter
     #     password_dialog = PasswordDialog(mode, self)  # Pass the mode to the dialog
     #     result = password_dialog.exec()

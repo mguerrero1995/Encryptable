@@ -60,6 +60,7 @@ We aim to continually evolve FileAccessPro to meet user demands and enhance func
 - **Optional Write Destination:** Allow users to choose a specific destination where the encrypted/decrypted files will be saved.
 - **Multiple Account Support:** Introduce an account system to facilitate batch encryption/decryption processes through a single login password, negating the need to enter a password for each batch. Initially, this feature will be local only.
 - **Cloud Support:** Extend the functionality to support cloud services, enabling users to encrypt/decrypt files across different devices and integrate with popular cloud storage solutions like Dropbox and Google Drive.
+-- **Modernized GUI:** Update and modernize the appearance of the interface to improve the user experience.
 
 ## Contributing
 
