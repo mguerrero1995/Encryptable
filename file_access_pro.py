@@ -32,6 +32,10 @@ def encrypt_file(file_path, password):
     with open(file_path, "rb") as f:
         plaintext = f.read()
     
+     # Adding a known signature at the start of the file
+    signature = b'MY_KNOWN_SIGNATURE'
+    plaintext = signature + plaintext
+    
     ciphertext = encryptor.update(plaintext) + encryptor.finalize()
     
     encrypted_file_path = file_path + ".cyph"
@@ -43,23 +47,34 @@ def encrypt_file(file_path, password):
 
 # Decrypt the file
 def decrypt_file(file_path, password):
-    with open(file_path, "rb") as f:
-        salt = f.read(16)
-        iv = f.read(16)
-        ciphertext = f.read()
-    
-    key = key_from_password(password, salt)
-    cipher = Cipher(algorithms.AES(key), modes.CFB(iv), backend=default_backend())
-    decryptor = cipher.decryptor()
-    plaintext = decryptor.update(ciphertext) + decryptor.finalize()
-    
-    # Remove custom extension to restore original file extension
-    decrypted_file_path = file_path.rstrip(".cyph")
-    with open(decrypted_file_path, "wb") as f:
-        f.write(plaintext)
-    
-    # Optionally delete the encrypted file after decryption
-    os.remove(file_path)
+    try:
+        with open(file_path, "rb") as f:
+            salt = f.read(16)
+            iv = f.read(16)
+            ciphertext = f.read()
+        
+        key = key_from_password(password, salt)
+        cipher = Cipher(algorithms.AES(key), modes.CFB(iv), backend=default_backend())
+        decryptor = cipher.decryptor()
+        plaintext = decryptor.update(ciphertext) + decryptor.finalize()
+        
+        signature = b'MY_KNOWN_SIGNATURE'
+        if plaintext[:len(signature)] != signature:
+            raise ValueError("Incorrect password provided for file: " + file_path)
+
+        plaintext = plaintext[len(signature):]
+
+        # Remove custom extension to restore original file extension
+        decrypted_file_path = file_path.rstrip(".cyph")
+
+        with open(decrypted_file_path, "wb") as f:
+            f.write(plaintext)
+        
+        # Optionally delete the encrypted file after decryption
+        os.remove(file_path)
+
+    except: 
+        raise ValueError(f"Decryption failed for {file_path} due to incorrect password")
 
 
 
@@ -109,7 +124,7 @@ class PasswordDialog(QDialog):
             self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
             self.toggle_password_btn.setIcon(self.show_icon)  # set back to show icon when password is hidden
     
-    def get_password(self):
+    def get_dialog_password(self):
         return self.password_input.text()
 
 
@@ -140,7 +155,7 @@ class DropZone(QLabel):
 class App(QWidget):
     def __init__(self):
         super().__init__()
-        self.title = "File Encryption"
+        self.title = "File Access Pro (Alpha)"
         self.initUI()
 
     def initUI(self):
@@ -238,7 +253,10 @@ class App(QWidget):
                     self.show_message("Error", f"{fl} is already encrypted. Please all select files are unencrypted.")
                     return
         
-        password = self.get_password("Encrypt")  # Pass the mode as an argument
+        password_dialog = PasswordDialog("Encrypt", self)
+        result = password_dialog.exec()
+        if result == QDialog.DialogCode.Accepted:
+            password = password_dialog.get_dialog_password()
         
         if not password:
             return
@@ -247,41 +265,51 @@ class App(QWidget):
             for fl in fls:
                 encrypt_file(fl, password)
             self.show_message("Success", "All files have been encrypted.")
+            self.file_path_input.clear()
         except Exception as e:
             self.show_message("Error", str(e))
 
     def decrypt_clicked(self):
         file_path = self.file_path_input.text()
-        fls = self.extract_file_paths(file_path) # Use extract_file_paths method in case there are multiple files selected
+        fls = self.extract_file_paths(file_path) 
         if not fls:
             self.show_message("Error", "Please enter a file path.")
             return
         else:
             for fl in fls: 
-                if os.path.splitext(fl)[1] != ".cyph": # Check if the file was encrypted by the app (i.e has custom ".cyph" extension)
+                if os.path.splitext(fl)[1] != ".cyph":
                     self.show_message("Error", f"{fl} is not encrypted or was not encrypted by this application.\n" 
                                     "\nPlease provide files with a `.cyph` extension.")
                     return
         
-        password = self.get_password("Decrypt")  # Pass the mode as an argument
+        password_dialog = PasswordDialog("Decrypt", self)
+        result = password_dialog.exec()
+        if result == QDialog.DialogCode.Accepted:
+            password = password_dialog.get_dialog_password()
 
         if not password:
             return
         
         try:
             for fl in fls:
-                decrypt_file(fl, password)
+                try:
+                    decrypt_file(fl, password)
+                except ValueError as e:
+                    self.show_message("Error", f"Decryption failed for file {fl}. Incorrect password.")
+                    return
             self.show_message("Success", "All files have been decrypted.")
+            self.file_path_input.clear()
         except Exception as e:
             self.show_message("Error", str(e))
 
-    def get_password(self, mode):  # Added "mode" parameter
-        password_dialog = PasswordDialog(mode, self)  # Pass the mode to the dialog
-        result = password_dialog.exec()
-        if result == QDialog.DialogCode.Accepted:
-            self.file_path_input.clear()
-            return password_dialog.get_password()
-        return None
+
+    # def get_password(self, mode):  # Added "mode" parameter
+    #     password_dialog = PasswordDialog(mode, self)  # Pass the mode to the dialog
+    #     result = password_dialog.exec()
+    #     if result == QDialog.DialogCode.Accepted:
+    #         self.file_path_input.clear()
+    #         return password_dialog.get_password()
+    #     return None
 
     def show_message(self, title, message):
         msg = QMessageBox(self)

@@ -3,7 +3,7 @@
 **Developer:** Manny Guerrero  
 **Email:** mmguerrero1995@gmail.com
 **Date:** September 23, 2023  
-**Version:** 1.0.0  
+**Version:** 1.0.1  
 **Status:** Alpha / Development Stage
 
 ---
@@ -15,6 +15,16 @@ This application is currently in its alpha/development stage. While we strive to
 **Users are solely responsible for any files that become irrecoverable due to use or misuse of FileAccessPro. It is highly recommended to exercise caution when using the application in its current state, including maintaining backups of all files to be encrypted or decrypted.**
 
 We appreciate your understanding and welcome feedback and reports of any issues you encounter during use.
+
+---
+
+## What's New in Version 1.0.1
+
+**Minor Updates:**
+- Clears the file path input field after files are successfully encrypted or decrypted.
+
+**Bug Fixes:**
+- Removed a bug where files were attempted to be decrypted and rewritten even if an incorrect password was given.
 
 ---
 
