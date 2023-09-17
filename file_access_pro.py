@@ -1,5 +1,6 @@
 import sys
 import os
+import re
 from PyQt6.QtCore import Qt, QMimeData
 from PyQt6.QtGui import QIcon, QPixmap
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLineEdit, QPushButton, QLabel, QMessageBox, QDialog, QHBoxLayout, QPushButton, QFileDialog, QFrame
@@ -81,8 +82,8 @@ class PasswordDialog(QDialog):
         self.input_layout.addWidget(self.password_input)
         
         # Eyeball button for toggling password visibility
-        self.show_icon = QIcon(QPixmap("https://github.com/mguerrero1995/FileAccessPro/tree/main/icons/show_password_icon.png"))
-        self.hide_icon = QIcon(QPixmap("https://github.com/mguerrero1995/FileAccessPro/tree/main/icons/hide_password_icon.png"))
+        self.show_icon = QIcon(QPixmap("https://github.com/mguerrero1995/FileAccessPro/raw/main/icons/show_password_icon.png"))
+        self.hide_icon = QIcon(QPixmap("https://github.com/mguerrero1995/FileAccessPro/raw/main/icons/hide_password_icon.png"))
         self.toggle_password_btn = QPushButton(self)
         self.toggle_password_btn.setIcon(self.show_icon)  
         self.toggle_password_btn.setFixedSize(30, 30)  # Fixed size for the icon button
@@ -125,12 +126,15 @@ class DropZone(QLabel):
 
     def dragEnterEvent(self, event):
         mime_data = event.mimeData()
-        if mime_data.hasUrls() and len(mime_data.urls()) == 1:  # Only accept one file
+        if mime_data.hasUrls():  # Allow multiple files
             event.acceptProposedAction()
 
     def dropEvent(self, event):
-        file_path = event.mimeData().urls()[0].toLocalFile()  # Get the file path
-        self.parent().file_path_input.setText(file_path)  # Update the QLineEdit with the file path
+        mime_data = event.mimeData()
+        file_paths = [url.toLocalFile() for url in mime_data.urls()]  # Get all file paths
+        formatted_paths = ",".join(f'"{path}"' for path in file_paths)  # Format paths
+        self.parent().file_path_input.setText(formatted_paths)  # Update the QLineEdit with the formatted file paths
+
 
 
 class App(QWidget):
@@ -210,49 +214,64 @@ class App(QWidget):
         self.resize(600, 750)
         self.show()
     
+    @staticmethod
+    # This function allows for parsing of multiple file paths during encryption/decryption
+    def extract_file_paths(formatted_paths): # File paths should be inputted as `"FileName1.ext","FileName2.ext",...`
+        return re.findall(r'"(.*?)"', formatted_paths) # Returns a list of individual file names
 
     def browse_file(self):
-        # Open a file dialog and set the selected file path to the input field
-        file_path, _ = QFileDialog.getOpenFileName(self, "Select File")
-        if file_path:
-            self.file_path_input.setText(file_path)
+        files, _ = QFileDialog.getOpenFileNames(self, "Browse", "", "All Files (*);") # Default file type directory to all files
+        if files:
+            formatted_paths = ",".join(f'"{path}"' for path in files) # Return files as a list in `"FileName1.ext","FileName2.ext",...` format
+            self.file_path_input.setText(formatted_paths)
+
 
     def encrypt_clicked(self):
         file_path = self.file_path_input.text()
-        if not file_path:
+        fls = self.extract_file_paths(file_path) # Use extract_file_paths method in case there are multiple files selected
+        if not fls:
             self.show_message("Error", "Please enter a file path.")
             return
-        elif os.path.splitext(file_path)[1] == ".cyph": # Check if the file is already encrypted (i.e has custom ".cyph" extension)
-            self.show_message("Error", "File is already encrypted. Please provide an unencrypted file.")
-            return
+        else:
+            for fl in fls:
+                if os.path.splitext(fl)[1] == ".cyph": # Check if the file is already encrypted (i.e has custom ".cyph" extension)
+                    self.show_message("Error", f"{fl} is already encrypted. Please all select files are unencrypted.")
+                    return
         
         password = self.get_password("Encrypt")  # Pass the mode as an argument
         
         if not password:
             return
+        
         try:
-            encrypt_file(file_path, password)
-            self.show_message("Success", f"File {file_path} has been encrypted.")
+            for fl in fls:
+                encrypt_file(fl, password)
+            self.show_message("Success", "All files have been encrypted.")
         except Exception as e:
             self.show_message("Error", str(e))
 
     def decrypt_clicked(self):
         file_path = self.file_path_input.text()
-        if not file_path:
+        fls = self.extract_file_paths(file_path) # Use extract_file_paths method in case there are multiple files selected
+        if not fls:
             self.show_message("Error", "Please enter a file path.")
             return
-        elif os.path.splitext(file_path)[1] != ".cyph": # Check if the file was encrypted by the app (i.e has custom ".cyph" extension)
-            self.show_message("Error", f"The file {file_path} is not encrypted or was not encrypted by this application.\n" 
-                                        "\nPlease provide a file with a `.cyph` extension.")
-            return
+        else:
+            for fl in fls: 
+                if os.path.splitext(fl)[1] != ".cyph": # Check if the file was encrypted by the app (i.e has custom ".cyph" extension)
+                    self.show_message("Error", f"{fl} is not encrypted or was not encrypted by this application.\n" 
+                                    "\nPlease provide files with a `.cyph` extension.")
+                    return
         
         password = self.get_password("Decrypt")  # Pass the mode as an argument
 
         if not password:
             return
+        
         try:
-            decrypt_file(file_path, password)
-            self.show_message("Success", f"File {file_path} has been decrypted.")
+            for fl in fls:
+                decrypt_file(fl, password)
+            self.show_message("Success", "All files have been decrypted.")
         except Exception as e:
             self.show_message("Error", str(e))
 
