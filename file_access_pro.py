@@ -115,8 +115,8 @@ class PasswordDialog(QDialog):
         self.input_layout.addWidget(self.password_input)
         
         # Eyeball button for toggling password visibility
-        self.show_icon = QIcon(QPixmap("https://github.com/mguerrero1995/FileAccessPro/raw/main/icons/show_password_icon.png"))
-        self.hide_icon = QIcon(QPixmap("https://github.com/mguerrero1995/FileAccessPro/raw/main/icons/hide_password_icon.png"))
+        self.show_icon = QIcon(QPixmap("./icons/show_password_icon.png"))
+        self.hide_icon = QIcon(QPixmap("./icons/hide_password_icon.png"))
         self.toggle_password_btn = QPushButton(self)
         self.toggle_password_btn.setIcon(self.show_icon)  
         self.toggle_password_btn.setFixedSize(30, 30)  # Fixed size for the icon button
