@@ -218,8 +218,6 @@ class App(QWidget):
         drop_zone_layout.addStretch() # Add a stretch after the drop zone so that it stays centered when the window expands
 
         main_layout.addLayout(drop_zone_layout)
-
-        # main_layout.addWidget(self.drop_zone)
         
         # Encrypt button
         self.encrypt_button = QPushButton("Encrypt", self)

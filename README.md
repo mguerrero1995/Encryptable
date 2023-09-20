@@ -49,7 +49,9 @@ FileAccessPro is an open-source, free-to-use desktop application designed to off
     - **Drag and Drop:** Simply drag and drop the files into the designated area in the application.
 4. **Encryption/Decryption:**
     - **Encrypt:** After adding the files, click on the 'Encrypt' button, enter a secure password, and the files will be encrypted.
-    - **Decrypt:** To decrypt, add the encrypted files, click on the 'Decrypt' button, and enter the correct password.
+    - **Decrypt:** To decrypt, add the encrypted files, click on the "Decrypt" button, and enter the correct password.
+        - **Note**: When decrypting multiple files in a batch, ensure all files were encrypted with the same password.
+
 5. **View Encrypted Files:** Encrypted files will have a custom extension. You can find them at the same location as the original files.
 
 ## Future Features
