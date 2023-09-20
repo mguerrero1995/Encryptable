@@ -2,8 +2,8 @@
 
 **Developer:** Manny Guerrero  
 **Email:** mmguerrero1995@gmail.com
-**Date:** September 23, 2023  
-**Version:** 1.0.1  
+**Date:** September 20, 2023  
+**Version:** 1.1.0  
 **Status:** Alpha / Development Stage
 
 ---
@@ -18,13 +18,13 @@ We appreciate your understanding and welcome feedback and reports of any issues 
 
 ---
 
-## What's New in Version 1.0.1
+## What's New in Version 1.1.0
 
-**Minor Updates:**
-- Clears the file path input field after files are successfully encrypted or decrypted.
+**Feature Updates:**
+- Added a toolbar with an "Account" dropdown. Will be used to support multiple accounts and password management in the near future.
 
-**Bug Fixes:**
-- Removed a bug where files were attempted to be decrypted and rewritten even if an incorrect password was given.
+**Dev Notes:**
+- Reorganized the code to accomodate the toolbar. The main app window is now a QMainWindow object rather than a QWidget, and the main encryption/decryption interface is now contained as a separate class (EncryptionUI). This keeps the code cleaner and more organized. The EncryptionUI is set as the central widget for the main App window.
 
 ---
 
