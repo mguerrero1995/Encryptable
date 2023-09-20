@@ -3,9 +3,12 @@ import os
 import re
 import struct
 import time
-from PyQt6.QtCore import Qt, QMimeData
-from PyQt6.QtGui import QIcon, QPixmap
-from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLineEdit, QPushButton, QLabel, QMessageBox, QDialog, QHBoxLayout, QPushButton, QFileDialog, QFrame
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QIcon, QPixmap, QAction
+from PyQt6.QtWidgets import (
+    QApplication, QWidget, QVBoxLayout, QLineEdit, QPushButton, QLabel, QMessageBox, QDialog, 
+    QHBoxLayout, QPushButton, QFileDialog, QFrame, QMainWindow, QMenu, QMenuBar
+)
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -170,15 +173,14 @@ class DropZone(QLabel):
 
 
 
-class App(QWidget):
+class EncyrptionUI(QWidget):
     def __init__(self):
         super().__init__()
-        self.title = "File Access Pro (Alpha)"
-        self.initUI()
+        
+        self.layout = QVBoxLayout()
 
-    def initUI(self):
+        # Create a main layout
         main_layout = QVBoxLayout()
-
 
         # Label
         self.file_path_label = QLabel("Enter File Path(s) or Drag & Drop File(s):")
@@ -241,10 +243,8 @@ class App(QWidget):
         main_layout.addStretch(1)
 
         self.setLayout(main_layout)
-        self.setWindowTitle(self.title)
-        self.resize(600, 750)
-        self.show()
-    
+
+
     @staticmethod
     # This function allows for parsing of multiple file paths during encryption/decryption
     def extract_file_paths(formatted_paths): # File paths should be inputted as `"FileName1.ext","FileName2.ext",...`
@@ -328,6 +328,58 @@ class App(QWidget):
         msg.setWindowTitle(title)
         msg.setText(message)
         msg.exec()
+
+class App(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.title = "File Access Pro (Alpha)"
+        self.initUI()
+
+    def initUI(self):
+        self.setWindowTitle(self.title)
+        self.setGeometry(100, 100, 600, 750)
+
+        # Create a menu bar
+        menu_bar = self.menuBar()
+
+        # Create an 'Account' menu
+        account_menu = QMenu("Account", self)
+
+        # Create actions to add to the 'Account' menu
+        create_account_action = QAction("Create Account", self)
+        sign_in_action = QAction("Sign In", self)
+        
+        # Connect actions to the methods (to be defined)
+        create_account_action.triggered.connect(self.create_account)
+        sign_in_action.triggered.connect(self.sign_in)
+
+        # Add actions to the 'Account' menu
+        account_menu.addAction(create_account_action)
+        account_menu.addAction(sign_in_action)
+
+        # Add 'Account' menu to the menu bar
+        menu_bar.addMenu(account_menu)
+
+        # self.setWindowTitle(self.title)
+        self.resize(600, 750)
+
+        central_widget = EncyrptionUI()
+
+        # Set the central widget to the QMainWindow
+        self.setCentralWidget(central_widget)
+
+        self.show()
+    
+    
+
+    # Define the methods to handle the create account and sign-in actions
+    def create_account(self):
+        print("Create account clicked")
+
+    def sign_in(self):
+        print("Sign in clicked")
+
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
