@@ -54,6 +54,30 @@ FileAccessPro is an open-source, free-to-use desktop application designed to off
 
 5. **View Encrypted Files:** Encrypted files will have a custom extension. You can find them at the same location as the original files.
 
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+## Version History
+
+### Version 1.0.0 (Alpha Release) - September 12, 2023
+- **Note:** First alpha release of File Access Pro.
+
+### Version 1.0.1 - September 17, 2023
+- **Bug Fixes:**
+  - Resolved an issue where the application attempted to decrypt files even when incorrect passwords were inputted.
+- **Minor Updates:**
+  - The file path inputs are now cleared after a successful encryption or decryption operation.
+
+### Version 1.1.0 - September 20, 2023
+- **What's New:**
+  - **Header Metadata**: Added header metadata to the encrypted files to store information such as signature and version. This aids in the validation of files during decryption, ensuring the correct application version is used and enhancing security.
+  - **Custom File Extension**: Encrypted files are now saved with a custom `.cyph` extension to help users easily identify encrypted files and to facilitate the application in recognizing files encrypted by it.
+  - **Drag and Drop Feature Enhancement**: Enhanced the drag and drop feature to support multiple files, simplifying the process of encrypting or decrypting multiple files at once.
+  - **Password Visibility Toggle**: Introduced a feature allowing users to toggle the visibility of their password while typing it in, enhancing user experience.
+  - **Improved UI**: Made several improvements to the UI, including better alignment of elements and fixed distances between them to ensure a cohesive and visually appealing layout.
+  - **Bug Fixes and Performance Improvements**: Implemented several bug fixes and performance improvements to enhance the overall functionality and user experience of the application.
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 ## Future Features
 
 We aim to continually evolve FileAccessPro to meet user demands and enhance functionality. Here are some prospective features we are considering for future versions:

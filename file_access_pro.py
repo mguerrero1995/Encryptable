@@ -18,6 +18,11 @@ from cryptography.hazmat.backends import default_backend
 SIGNATURE = b'FAP_ENC'  # Your unique file signature, converted to bytes
 HEADER_ADDITIONAL_LENGTH = 5  # The length of the additional header information, in bytes
 
+# File path configurations for the app
+SHOW_PW_ICON = "./icons/show_password_icon.png"
+HIDE_PW_ICON = "./icons/hide_password_icon.png"
+
+
 
 # Generate a key from the password
 def key_from_password(password, salt):
@@ -118,10 +123,10 @@ class PasswordDialog(QDialog):
         self.input_layout.addWidget(self.password_input)
         
         # Eyeball button for toggling password visibility
-        self.show_icon = QIcon(QPixmap("./icons/show_password_icon.png"))
-        self.hide_icon = QIcon(QPixmap("./icons/hide_password_icon.png"))
+        self.show_pw_icon = QIcon(QPixmap(SHOW_PW_ICON))
+        self.hide_pw_icon = QIcon(QPixmap(HIDE_PW_ICON))
         self.toggle_password_btn = QPushButton(self)
-        self.toggle_password_btn.setIcon(self.show_icon)  
+        self.toggle_password_btn.setIcon(self.show_pw_icon)  
         self.toggle_password_btn.setFixedSize(30, 30)  # Fixed size for the icon button
         self.toggle_password_btn.setCheckable(True)
         self.toggle_password_btn.clicked.connect(self.toggle_password_visibility)
@@ -140,14 +145,102 @@ class PasswordDialog(QDialog):
     def toggle_password_visibility(self, checked):
         if checked:
             self.password_input.setEchoMode(QLineEdit.EchoMode.Normal)
-            self.toggle_password_btn.setIcon(self.hide_icon)  # set to hide icon when password is visible
+            self.toggle_password_btn.setIcon(self.hide_pw_icon)  # set to hide icon when password is visible
         else:
             self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
-            self.toggle_password_btn.setIcon(self.show_icon)  # set back to show icon when password is hidden
+            self.toggle_password_btn.setIcon(self.show_pw_icon)  # set back to show icon when password is hidden
     
     def get_dialog_password(self):
         return self.password_input.text()
+    
 
+class CreateAccountDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        self.setWindowTitle("Create New Account")
+
+        self.layout = QVBoxLayout()
+
+        self.email_label = QLabel("Email:")
+        self.email_input = QLineEdit()
+
+        self.password_label = QLabel("Password:")
+        self.password_input = QLineEdit()
+        self.password_input.setEchoMode(QLineEdit.EchoMode.Password)  # Hide password input
+
+        self.confirm_password_label = QLabel("Confirm Password:")
+        self.confirm_password_input = QLineEdit()
+        self.confirm_password_input.setEchoMode(QLineEdit.EchoMode.Password)  # Hide password input
+
+        self.create_account_button = QPushButton("Create Account")
+        self.create_account_button.clicked.connect(self.create_account_clicked)
+
+        self.layout.addWidget(self.email_label)
+        self.layout.addWidget(self.email_input)
+        self.layout.addWidget(self.password_label)
+        self.layout.addWidget(self.password_input)
+        self.layout.addWidget(self.confirm_password_label)
+        self.layout.addWidget(self.confirm_password_input)
+        self.layout.addWidget(self.create_account_button)
+
+        self.setLayout(self.layout)
+
+    def create_account_clicked(self):
+        print("Create account clicked")
+        pass
+
+class ManageAccountDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        self.setWindowTitle("Manage Account")
+
+        self.layout = QVBoxLayout()
+
+        self.change_email_label = QLabel("Change Email (Placeholder)")
+
+        self.change_password_label = QLabel("Change Password (Placeholder)")
+
+        self.layout.addWidget(self.change_email_label)
+        self.layout.addWidget(self.change_password_label)
+
+        self.setLayout(self.layout)
+
+
+class SignInDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        
+        self.setWindowTitle("Sign In")
+
+        self.layout = QVBoxLayout()
+
+        self.email_label = QLabel("Email:")
+        self.email_input = QLineEdit()
+
+        self.password_label = QLabel("Password:")
+        self.password_input = QLineEdit()
+        self.password_input.setEchoMode(QLineEdit.EchoMode.Password)  # Hide password input
+
+        self.login_button = QPushButton("Login")
+        self.login_button.clicked.connect(self.login_clicked)
+
+        self.layout.addWidget(self.email_label)
+        self.layout.addWidget(self.email_input)
+        self.layout.addWidget(self.password_label)
+        self.layout.addWidget(self.password_input)
+        self.layout.addWidget(self.login_button)
+
+        self.setLayout(self.layout)
+
+    def login_clicked(self):
+        # Handle login
+        email = self.email_input.text()
+        password = self.password_input.text()
+        # Add logic to verify email and password
+        print("Login clicked")
+        pass
 
 
 class DropZone(QLabel):
@@ -329,6 +422,7 @@ class EncyrptionUI(QWidget):
         msg.setText(message)
         msg.exec()
 
+
 class App(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -347,14 +441,17 @@ class App(QMainWindow):
 
         # Create actions to add to the 'Account' menu
         create_account_action = QAction("Create Account", self)
+        manage_account_action = QAction("Manage Accounts", self)
         sign_in_action = QAction("Sign In", self)
         
-        # Connect actions to the methods (to be defined)
+        # Connect actions to the methods
         create_account_action.triggered.connect(self.create_account)
+        manage_account_action.triggered.connect(self.manage_account)
         sign_in_action.triggered.connect(self.sign_in)
 
         # Add actions to the 'Account' menu
         account_menu.addAction(create_account_action)
+        account_menu.addAction(manage_account_action)
         account_menu.addAction(sign_in_action)
 
         # Add 'Account' menu to the menu bar
@@ -370,14 +467,19 @@ class App(QMainWindow):
 
         self.show()
     
-    
 
     # Define the methods to handle the create account and sign-in actions
     def create_account(self):
-        print("Create account clicked")
+        new_account = CreateAccountDialog(self)
+        new_account.show()
+
+    def manage_account(self):
+        manage_account = ManageAccountDialog(self)
+        manage_account.show()
 
     def sign_in(self):
-        print("Sign in clicked")
+        sign_in = SignInDialog(self)
+        sign_in.show()
 
 
 
