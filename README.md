@@ -3,7 +3,7 @@
 **Developer:** Manny Guerrero  
 **Email:** mmguerrero1995@gmail.com
 **Date:** September 20, 2023  
-**Version:** 1.1.0  
+**Version:** 0.1.1
 **Status:** Alpha / Development Stage
 
 ---
@@ -18,7 +18,7 @@ We appreciate your understanding and welcome feedback and reports of any issues 
 
 ---
 
-## What's New in Version 1.1.0
+## What's New in Version 0.1.1
 
 **Feature Updates:**
 - Added a toolbar with an "Account" dropdown. Will be used to support multiple accounts and password management in the near future.
@@ -58,17 +58,17 @@ FileAccessPro is an open-source, free-to-use desktop application designed to off
 
 ## Version History
 
-### Version 1.0.0 (Alpha Release) - September 12, 2023
+### Version 0.0.1 (Pre-Release) - September 12, 2023
 - **Note:** First alpha release of File Access Pro.
 
-### Version 1.0.1 - September 17, 2023
+### Version 0.0.2 - September 17, 2023
 - **Bug Fixes:**
   - Resolved an issue where the application attempted to decrypt files even when incorrect passwords were inputted.
 - **Minor Updates:**
   - The file path inputs are now cleared after a successful encryption or decryption operation.
 
-### Version 1.1.0 - September 20, 2023
-- **What's New:**
+### Version 0.1.0 (Alpha Release) - September 20, 2023
+- **Alpha Release Features:**
   - **Header Metadata**: Added header metadata to the encrypted files to store information such as signature and version. This aids in the validation of files during decryption, ensuring the correct application version is used and enhancing security.
   - **Custom File Extension**: Encrypted files are now saved with a custom `.cyph` extension to help users easily identify encrypted files and to facilitate the application in recognizing files encrypted by it.
   - **Drag and Drop Feature Enhancement**: Enhanced the drag and drop feature to support multiple files, simplifying the process of encrypting or decrypting multiple files at once.
