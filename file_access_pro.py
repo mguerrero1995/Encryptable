@@ -189,8 +189,42 @@ class CreateAccountDialog(QDialog):
         self.setLayout(self.layout)
 
     def create_account_clicked(self):
-        print("Create account clicked")
-        pass
+        email = self.email_input.text()
+        password = self.password_input.text()
+        confirm_password = self.confirm_password_input.text()
+
+        if password != confirm_password:
+            self.show_message("Error", "Passwords do not match.")
+            self.email_input.clear()
+            self.password_input.clear()
+            self.confirm_password_input.clear()
+            return
+
+        try:
+            # Connect to database
+            conn = sqlite3.connect("accounts_database.db")
+            cursor = conn.cursor()
+
+            # Insert a new record into the users table with the email and password
+            cursor.execute("INSERT INTO users (email, password) VALUES (?, ?);", 
+                        (email, password))
+            conn.commit()
+            conn.close()
+
+            self.email_input.clear()
+            self.password_input.clear()
+            self.confirm_password_input.clear()
+
+            self.show_message("Success!", "New account successfully created.")
+        except Exception as e:
+            self.show_message("Error", str(e))
+        
+    
+    def show_message(self, title, message):
+        msg = QMessageBox(self)
+        msg.setWindowTitle(title)
+        msg.setText(message)
+        msg.exec()
 
 class ManageAccountDialog(QDialog):
     def __init__(self, parent=None):
