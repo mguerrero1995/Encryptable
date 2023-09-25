@@ -3,6 +3,8 @@ import os
 import re
 import struct
 import time
+import sqlite3
+import random
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QIcon, QPixmap, QAction
 from PyQt6.QtWidgets import (
