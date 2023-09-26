@@ -112,8 +112,13 @@ def hash_login_password(password: str) -> bytes:
     return (hashed, salt)
 
 def verify_login_password(stored_password_hash: bytes, provided_password: str) -> bool:
-    return bcrypt.checkpw(provided_password.encode('utf-8'), stored_password_hash)
+    return bcrypt.checkpw(provided_password.encode("utf-8"), stored_password_hash)
 
+def show_message(title, message):
+    msg = QMessageBox()
+    msg.setWindowTitle(title)
+    msg.setText(message)
+    msg.exec()
 
 class PasswordDialog(QDialog):
     def __init__(self, mode, parent=None):
@@ -203,7 +208,7 @@ class CreateAccountDialog(QDialog):
         confirm_password = self.confirm_password_input.text()
 
         if password != confirm_password:
-            self.show_message("Error", "Passwords do not match.")
+            show_message("Error", "Passwords do not match.")
             self.email_input.clear()
             self.password_input.clear()
             self.confirm_password_input.clear()
@@ -214,29 +219,22 @@ class CreateAccountDialog(QDialog):
         try:
             # Connect to database
             conn = sqlite3.connect("accounts_database.db")
-            cursor = conn.cursor()
+            cur = conn.cursor()
 
             # Insert a new record into the users table with the email and password
-            cursor.execute("INSERT INTO users (email, password_hash, salt) VALUES (?, ?, ?);", 
+            cur.execute("INSERT INTO users (email, password_hash, salt) VALUES (?, ?, ?);", 
                         (email, password_hash, salt))
             conn.commit()
             conn.close()
 
-            self.email_input.clear()
             self.password_input.clear()
             self.confirm_password_input.clear()
 
-            self.show_message("Success!", "New account successfully created.")
+            show_message("Success!", "New account successfully created.")
         except Exception as e:
-            self.show_message("Error", str(e))
+            show_message("Error", str(e))
         
     
-    def show_message(self, title, message):
-        msg = QMessageBox(self)
-        msg.setWindowTitle(title)
-        msg.setText(message)
-        msg.exec()
-
 class ManageAccountDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -285,9 +283,37 @@ class SignInDialog(QDialog):
         # Handle login
         email = self.email_input.text()
         password = self.password_input.text()
-        # Add logic to verify email and password
-        print("Login clicked")
-        pass
+
+        try:
+            # Connect to database
+            conn = sqlite3.connect("accounts_database.db")
+            cur = conn.cursor()
+
+            # Get password hash and salt for the provided email 
+            password_hash = cur.execute("SELECT password_hash FROM users WHERE email = ?", (email,)).fetchone()
+
+            # Verify that a matching email was found
+            if not password_hash:
+                self.email_input.clear()
+                self.password_input.clear()
+                conn.close()
+                show_message("Error", "Email not found.")
+                return
+            
+            if verify_login_password(password_hash, password):
+                show_message("Success", "Successful sign in attempt.")
+                self.email_input.clear()
+                self.password_input.clear()
+                conn.close()
+            else:
+                show_message("Error", "Incorrect password.")
+                self.email_input.clear()
+                self.password_input.clear()
+                conn.close()
+                
+            return
+        except Exception as e:
+            show_message("Error", str(e)) 
 
 
 class DropZone(QLabel):
@@ -401,12 +427,12 @@ class EncyrptionUI(QWidget):
         file_path = self.file_path_input.text()
         fls = self.extract_file_paths(file_path) # Use extract_file_paths method in case there are multiple files selected
         if not fls:
-            self.show_message("Error", "Please enter a file path.")
+            show_message("Error", "Please enter a file path.")
             return
         else:
             for fl in fls:
                 if os.path.splitext(fl)[1] == ".cyph": # Check if the file is already encrypted (i.e has custom ".cyph" extension)
-                    self.show_message("Error", f"{fl} is already encrypted. Please ensure that all selected files are unencrypted.")
+                    show_message("Error", f"{fl} is already encrypted. Please ensure that all selected files are unencrypted.")
                     return
         
         password_dialog = PasswordDialog("Encrypt", self)
@@ -420,21 +446,21 @@ class EncyrptionUI(QWidget):
         try:
             for fl in fls:
                 encrypt_file(fl, password)
-            self.show_message("Success", "All files have been successfully encrypted.")
+            show_message("Success", "All files have been successfully encrypted.")
             self.file_path_input.clear()
         except Exception as e:
-            self.show_message("Error", str(e))
+            show_message("Error", str(e))
 
     def decrypt_clicked(self):
         file_path = self.file_path_input.text()
         fls = self.extract_file_paths(file_path) 
         if not fls:
-            self.show_message("Error", "Please enter a file path.")
+            show_message("Error", "Please enter a file path.")
             return
         else:
             for fl in fls: 
                 if os.path.splitext(fl)[1] != ".cyph":
-                    self.show_message("Error", f"{fl} is not encrypted or was not encrypted by this application.\n" 
+                    show_message("Error", f"{fl} is not encrypted or was not encrypted by this application.\n" 
                                     "\nPlease provide files with a `.cyph` extension.")
                     return
         
@@ -449,10 +475,10 @@ class EncyrptionUI(QWidget):
         try:
             for fl in fls:
                 decrypt_file(fl, password)
-            self.show_message("Success", "All files have been successfully decrypted.")
+            show_message("Success", "All files have been successfully decrypted.")
             self.file_path_input.clear()
         except Exception as e:
-            self.show_message("Error", str(e))
+            show_message("Error", str(e))
 
     # Do I want to replace this logic in the encrypt/decrypt_clicked function with this method?
     # def get_password(self, mode):  # Added "mode" parameter
@@ -462,12 +488,6 @@ class EncyrptionUI(QWidget):
     #         self.file_path_input.clear()
     #         return password_dialog.get_password()
     #     return None
-
-    def show_message(self, title, message):
-        msg = QMessageBox(self)
-        msg.setWindowTitle(title)
-        msg.setText(message)
-        msg.exec()
 
 
 class App(QMainWindow):
