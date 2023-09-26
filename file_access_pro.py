@@ -66,6 +66,7 @@ def encrypt_file(file_path, password, user_id):
 
         # Optionally delete the original file after encryption
         os.remove(file_path)
+        
         # Write the encryption metadata to the database if a user is logged in
         if user_id:
             try:
@@ -73,14 +74,14 @@ def encrypt_file(file_path, password, user_id):
                     cur = conn.cursor()
                     cur.execute("INSERT INTO encrypted_files (user_id, file_name, encryption_signature, encrypted_date) "
                                 "VALUES (?, ?, ?, ?)", 
-                                (user_id, os.path.basename(file_path), header, datetime.datetime.now()))
+                                (user_id, os.path.basename(encrypted_file_path), header, datetime.datetime.now()))
             except Exception as e:
                 show_message("Error", str(e))
     except Exception as e:
         show_message("Error", str(e))
 
 # Decrypt the file
-def decrypt_file(file_path, password):
+def decrypt_file(file_path, password, user_id):
     try:
         with open(file_path, "rb") as f:
             salt = f.read(16)
@@ -117,14 +118,14 @@ def decrypt_file(file_path, password):
         os.remove(file_path)
 
         # Delete the encryption metadata from the database if a user is logged in
-        # if user_id:
-        #     try:
-        #         with sqlite3.connect("accounts_database.db") as conn:
-        #             cur = conn.cursor()
-        #             cur.execute("DELETE encrypted_files WHERE user_id = ? AND file_name = ?", 
-        #                         (user_id, os.path.basename(file_path)))
-        #     except Exception as e:
-        #         show_message("Error", str(e))
+        if user_id:
+            try:
+                with sqlite3.connect("accounts_database.db") as conn:
+                    cur = conn.cursor()
+                    cur.execute("DELETE FROM encrypted_files WHERE user_id = ? AND file_name = ?", 
+                                (user_id, os.path.basename(file_path)))
+            except Exception as e:
+                show_message("Error", str(e))
     except: 
         raise ValueError(f"Decryption failed for {file_path} due to an incorrect password.") 
     
@@ -247,12 +248,11 @@ class CreateAccountDialog(QDialog):
                 cur.execute("INSERT INTO users (email, user_password_hash) VALUES (?, ?);", 
                             (email, user_password_hash))
 
-
             self.email_input.clear()
             self.password_input.clear()
             self.confirm_password_input.clear()
-
             show_message("Success!", "New account successfully created.")
+            self.close()
         except Exception as e:
             show_message("Error", str(e))
         
@@ -323,6 +323,8 @@ class SignInDialog(QDialog):
         
             if verify_login_password(user_password_hash, password):
                 self.parent().current_user = user_id
+                self.email_input.clear()
+                self.password_input.clear()
                 show_message("Success", "Successful sign in attempt.")
                 self.close()
             else:
@@ -491,7 +493,7 @@ class EncyrptionUI(QWidget):
         
         try:
             for fl in fls:
-                decrypt_file(fl, password)
+                decrypt_file(fl, password, self.app_instance.current_user)
             show_message("Success", "All files have been successfully decrypted.")
             self.file_path_input.clear()
         except Exception as e:
@@ -570,7 +572,8 @@ class App(QMainWindow):
         sign_in.show()
 
     def print_user(self):
-        return print(self.current_user)
+        show_message("Current User", f"Currest user is {self.current_user}.")
+        return
 
 
 if __name__ == "__main__":
