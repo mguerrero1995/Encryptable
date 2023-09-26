@@ -109,7 +109,7 @@ def decrypt_file(file_path, password):
 def hash_login_password(password: str) -> bytes:
     salt = bcrypt.gensalt()
     hashed = bcrypt.hashpw(password.encode("utf-8"), salt)
-    return (hashed, salt)
+    return hashed
 
 def verify_login_password(stored_password_hash: bytes, provided_password: str) -> bool:
     return bcrypt.checkpw(provided_password.encode("utf-8"), stored_password_hash)
@@ -214,7 +214,7 @@ class CreateAccountDialog(QDialog):
             self.confirm_password_input.clear()
             return
 
-        password_hash, salt = hash_login_password(password)[0], hash_login_password(password)[1]
+        password_hash = hash_login_password(password)
 
         try:
             # Connect to database
@@ -222,11 +222,12 @@ class CreateAccountDialog(QDialog):
             cur = conn.cursor()
 
             # Insert a new record into the users table with the email and password
-            cur.execute("INSERT INTO users (email, password_hash, salt) VALUES (?, ?, ?);", 
-                        (email, password_hash, salt))
+            cur.execute("INSERT INTO users (email, password_hash) VALUES (?, ?);", 
+                        (email, password_hash))
             conn.commit()
             conn.close()
 
+            self.email_input.clear()
             self.password_input.clear()
             self.confirm_password_input.clear()
 
@@ -292,13 +293,13 @@ class SignInDialog(QDialog):
             # Get password hash and salt for the provided email 
             password_hash = cur.execute("SELECT password_hash FROM users WHERE email = ?", (email,)).fetchone()
 
-            # Verify that a matching email was found
-            if not password_hash:
-                self.email_input.clear()
+            if not password_hash: # Verify that a matching email was found
                 self.password_input.clear()
                 conn.close()
                 show_message("Error", "Email not found.")
                 return
+
+            password_hash = password_hash[0] # Convert password_hash to a binary string instead of a tuple
             
             if verify_login_password(password_hash, password):
                 show_message("Success", "Successful sign in attempt.")
@@ -307,7 +308,6 @@ class SignInDialog(QDialog):
                 conn.close()
             else:
                 show_message("Error", "Incorrect password.")
-                self.email_input.clear()
                 self.password_input.clear()
                 conn.close()
                 
