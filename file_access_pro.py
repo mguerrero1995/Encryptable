@@ -296,7 +296,7 @@ class SignInDialog(QDialog):
             if not password_hash: # Verify that a matching email was found
                 self.password_input.clear()
                 conn.close()
-                show_message("Error", "Email not found.")
+                show_message("Error", "Invalid username or password.")
                 return
 
             password_hash = password_hash[0] # Convert password_hash to a binary string instead of a tuple
@@ -307,7 +307,7 @@ class SignInDialog(QDialog):
                 self.password_input.clear()
                 conn.close()
             else:
-                show_message("Error", "Incorrect password.")
+                show_message("Error", "Invalid username or password.")
                 self.password_input.clear()
                 conn.close()
                 
