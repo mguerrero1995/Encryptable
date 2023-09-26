@@ -18,9 +18,15 @@
   - **Improved UI**: Made several improvements to the UI, including better alignment of elements and fixed distances between them to ensure a cohesive and visually appealing layout.
   - **Bug Fixes and Performance Improvements**: Implemented several bug fixes and performance improvements to enhance the overall functionality and user experience of the application
 
+### Version 0.1.1 (Alpha Release) - September 22, 2023
+**Feature Updates:**
+- Added a toolbar with an "Account" dropdown. Will be used to support multiple accounts and password management in the near future.
+
+**Technical Notes:**
+- Reorganized the code to accomodate the toolbar. The main app window is now a QMainWindow object rather than a QWidget, and the main encryption/decryption interface is now contained as a separate class (EncryptionUI). This keeps the code cleaner and more organized. The EncryptionUI is set as the central widget for the main App window.
+
 ### Version 0.2.0 (Alpha Release) - September 26, 2023
 - **New Features:**
-  - **Menu Bar:** Added a menu bar that currently provides functionality around user accounts.
   - **User Account Support:** Added a backend SQLite database to support the use of user accounts. 
     - *Create Account:* Users now have the option to create an account by providing an email and password. Passwords are securely stored as hashes.
     - *Logged In State Tracking:* Application can now track if and which user is currently logged in.
