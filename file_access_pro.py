@@ -1,3 +1,4 @@
+import datetime
 import os
 import random
 import re
@@ -5,7 +6,7 @@ import sqlite3
 import struct
 import sys
 import time
-import datetime
+
 import bcrypt
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
@@ -15,8 +16,8 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QAction, QIcon, QPixmap
 from PyQt6.QtWidgets import (QApplication, QDialog, QFileDialog, QFrame,
                              QHBoxLayout, QLabel, QLineEdit, QMainWindow,
-                             QMenu, QMenuBar, QMessageBox, QPushButton,
-                             QVBoxLayout, QWidget)
+                             QMenu, QMessageBox, QPushButton, QVBoxLayout,
+                             QWidget)
 
 # Configurations for app
 SIGNATURE = b'FAP_ENC'  # Your unique file signature, converted to bytes
@@ -66,15 +67,15 @@ def encrypt_file(file_path, password, user_id):
         # Optionally delete the original file after encryption
         os.remove(file_path)
         # Write the encryption metadata to the database if a user is logged in
-        # if user_id:
-        #     try:
-        #         with sqlite3.connect("accounts_database.db") as conn:
-        #             cur = conn.cursor()
-        #             cur.execute("INSERT INTO encrypted_files (user_id, file_name, encryption_signature, encrypted_date) "
-        #                         "VALUES (?, ?, ?, ?)", 
-        #                         (user_id, os.path.basename(file_path), header, datetime.datetime.now()))
-        #     except Exception as e:
-        #         show_message("Error", str(e))
+        if user_id:
+            try:
+                with sqlite3.connect("accounts_database.db") as conn:
+                    cur = conn.cursor()
+                    cur.execute("INSERT INTO encrypted_files (user_id, file_name, encryption_signature, encrypted_date) "
+                                "VALUES (?, ?, ?, ?)", 
+                                (user_id, os.path.basename(file_path), header, datetime.datetime.now()))
+            except Exception as e:
+                show_message("Error", str(e))
     except Exception as e:
         show_message("Error", str(e))
 
@@ -116,12 +117,12 @@ def decrypt_file(file_path, password):
         os.remove(file_path)
 
         # Delete the encryption metadata from the database if a user is logged in
-        # if USER_ID:
+        # if user_id:
         #     try:
         #         with sqlite3.connect("accounts_database.db") as conn:
         #             cur = conn.cursor()
         #             cur.execute("DELETE encrypted_files WHERE user_id = ? AND file_name = ?", 
-        #                         (USER_ID, os.path.basename(file_path)))
+        #                         (user_id, os.path.basename(file_path)))
         #     except Exception as e:
         #         show_message("Error", str(e))
     except: 
