@@ -19,3 +19,13 @@ CREATE TABLE IF NOT EXISTS license_detail (
     license_type TEXT,
     is_active INTEGER
 );
+
+CREATE TABLE files (
+    file_id DEFAULT (randomblob(16)) PRIMARY KEY,
+    user_id BLOB NULL,
+    file_name TEXT NOT NULL,
+    encryption_signature TEXT NOT NULL,
+    encrypted_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    last_accessed DATETIME,
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+);
