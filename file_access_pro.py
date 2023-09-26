@@ -1,20 +1,22 @@
-import sys
 import os
-import re
-import struct
-import time
-import sqlite3
 import random
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QIcon, QPixmap, QAction
-from PyQt6.QtWidgets import (
-    QApplication, QWidget, QVBoxLayout, QLineEdit, QPushButton, QLabel, QMessageBox, QDialog, 
-    QHBoxLayout, QPushButton, QFileDialog, QFrame, QMainWindow, QMenu, QMenuBar
-)
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+import re
+import sqlite3
+import struct
+import sys
+import time
+
+import bcrypt
 from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QAction, QIcon, QPixmap
+from PyQt6.QtWidgets import (QApplication, QDialog, QFileDialog, QFrame,
+                             QHBoxLayout, QLabel, QLineEdit, QMainWindow,
+                             QMenu, QMenuBar, QMessageBox, QPushButton,
+                             QVBoxLayout, QWidget)
 
 # Configurations for app
 SIGNATURE = b'FAP_ENC'  # Your unique file signature, converted to bytes
@@ -104,6 +106,13 @@ def decrypt_file(file_path, password):
     except: 
         raise ValueError(f"Decryption failed for {file_path} due to an incorrect password.")
 
+def hash_login_password(password: str) -> bytes:
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(password.encode("utf-8"), salt)
+    return (hashed, salt)
+
+def verify_login_password(stored_password_hash: bytes, provided_password: str) -> bool:
+    return bcrypt.checkpw(provided_password.encode('utf-8'), stored_password_hash)
 
 
 class PasswordDialog(QDialog):
@@ -200,14 +209,16 @@ class CreateAccountDialog(QDialog):
             self.confirm_password_input.clear()
             return
 
+        password_hash, salt = hash_login_password(password)[0], hash_login_password(password)[1]
+
         try:
             # Connect to database
             conn = sqlite3.connect("accounts_database.db")
             cursor = conn.cursor()
 
             # Insert a new record into the users table with the email and password
-            cursor.execute("INSERT INTO users (email, password) VALUES (?, ?);", 
-                        (email, password))
+            cursor.execute("INSERT INTO users (email, password_hash, salt) VALUES (?, ?, ?);", 
+                        (email, password_hash, salt))
             conn.commit()
             conn.close()
 
