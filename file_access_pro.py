@@ -5,7 +5,7 @@ import sqlite3
 import struct
 import sys
 import time
-
+import datetime
 import bcrypt
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
@@ -27,7 +27,6 @@ SHOW_PW_ICON = "./icons/show_password_icon.png"
 HIDE_PW_ICON = "./icons/hide_password_icon.png"
 
 
-
 # Generate a key from the password
 def key_from_password(password, salt):
     kdf = PBKDF2HMAC(
@@ -40,31 +39,44 @@ def key_from_password(password, salt):
     return kdf.derive(password.encode())
 
 # Encrypt the file
-def encrypt_file(file_path, password):
-    salt = os.urandom(16)
-    key = key_from_password(password, salt)
-    iv = os.urandom(16)
-    cipher = Cipher(algorithms.AES(key), modes.CFB(iv), backend=default_backend())
-    encryptor = cipher.encryptor()
-    
-    with open(file_path, "rb") as f:
-        plaintext = f.read()
-    
-     # Adding a known signature at the start of the file
-    signature = SIGNATURE
-    version = 1
-    timestamp = int(time.time())
-    header = signature + struct.pack('B', version) + struct.pack('I', timestamp)
-    plaintext = header + plaintext
-    
-    ciphertext = encryptor.update(plaintext) + encryptor.finalize()
-    
-    encrypted_file_path = file_path + ".cyph"
-    with open(encrypted_file_path, "wb") as f:
-        f.write(salt + iv + ciphertext)
+def encrypt_file(file_path, password, user_id):
+    try:
+        salt = os.urandom(16)
+        key = key_from_password(password, salt)
+        iv = os.urandom(16)
+        cipher = Cipher(algorithms.AES(key), modes.CFB(iv), backend=default_backend())
+        encryptor = cipher.encryptor()
+        
+        with open(file_path, "rb") as f:
+            plaintext = f.read()
+        
+        # Adding a known signature at the start of the file
+        signature = SIGNATURE
+        version = 1
+        timestamp = int(time.time())
+        header = signature + struct.pack('B', version) + struct.pack('I', timestamp)
+        plaintext = header + plaintext
+        
+        ciphertext = encryptor.update(plaintext) + encryptor.finalize()
+        
+        encrypted_file_path = file_path + ".cyph"
+        with open(encrypted_file_path, "wb") as f:
+            f.write(salt + iv + ciphertext)
 
-    # Optionally delete the original file after encryption
-    os.remove(file_path)
+        # Optionally delete the original file after encryption
+        os.remove(file_path)
+        # Write the encryption metadata to the database if a user is logged in
+        # if user_id:
+        #     try:
+        #         with sqlite3.connect("accounts_database.db") as conn:
+        #             cur = conn.cursor()
+        #             cur.execute("INSERT INTO encrypted_files (user_id, file_name, encryption_signature, encrypted_date) "
+        #                         "VALUES (?, ?, ?, ?)", 
+        #                         (user_id, os.path.basename(file_path), header, datetime.datetime.now()))
+        #     except Exception as e:
+        #         show_message("Error", str(e))
+    except Exception as e:
+        show_message("Error", str(e))
 
 # Decrypt the file
 def decrypt_file(file_path, password):
@@ -90,7 +102,7 @@ def decrypt_file(file_path, password):
 
         # Step 3: Verifying the header
         if signature_in_file != signature:
-            raise ValueError("Incorrect password or not a file encrypted by this application.")
+            raise ValueError("Incorrect password or file not encrypted by this application.")
 
         plaintext = plaintext[len(signature) + HEADER_ADDITIONAL_LENGTH:]
 
@@ -103,9 +115,18 @@ def decrypt_file(file_path, password):
         # Optionally delete the encrypted file after decryption
         os.remove(file_path)
 
+        # Delete the encryption metadata from the database if a user is logged in
+        # if USER_ID:
+        #     try:
+        #         with sqlite3.connect("accounts_database.db") as conn:
+        #             cur = conn.cursor()
+        #             cur.execute("DELETE encrypted_files WHERE user_id = ? AND file_name = ?", 
+        #                         (USER_ID, os.path.basename(file_path)))
+        #     except Exception as e:
+        #         show_message("Error", str(e))
     except: 
-        raise ValueError(f"Decryption failed for {file_path} due to an incorrect password.")
-
+        raise ValueError(f"Decryption failed for {file_path} due to an incorrect password.") 
+    
 def hash_login_password(password: str) -> bytes:
     salt = bcrypt.gensalt()
     hashed = bcrypt.hashpw(password.encode("utf-8"), salt)
@@ -214,18 +235,17 @@ class CreateAccountDialog(QDialog):
             self.confirm_password_input.clear()
             return
 
-        password_hash = hash_login_password(password)
+        user_password_hash = hash_login_password(password)
 
         try:
             # Connect to database
-            conn = sqlite3.connect("accounts_database.db")
-            cur = conn.cursor()
+            with sqlite3.connect("accounts_database.db") as conn:
+                cur = conn.cursor()
 
-            # Insert a new record into the users table with the email and password
-            cur.execute("INSERT INTO users (email, password_hash) VALUES (?, ?);", 
-                        (email, password_hash))
-            conn.commit()
-            conn.close()
+                # Insert a new record into the users table with the email and password
+                cur.execute("INSERT INTO users (email, user_password_hash) VALUES (?, ?);", 
+                            (email, user_password_hash))
+
 
             self.email_input.clear()
             self.password_input.clear()
@@ -287,30 +307,25 @@ class SignInDialog(QDialog):
 
         try:
             # Connect to database
-            conn = sqlite3.connect("accounts_database.db")
-            cur = conn.cursor()
+            with sqlite3.connect("accounts_database.db") as conn:
+                cur = conn.cursor()
 
-            # Get password hash and salt for the provided email 
-            password_hash = cur.execute("SELECT password_hash FROM users WHERE email = ?", (email,)).fetchone()
+                # Get password hash and salt for the provided email 
+                login_details = cur.execute("SELECT user_id, user_password_hash FROM users WHERE email = ?", (email,)).fetchone()
 
-            if not password_hash: # Verify that a matching email was found
+            if not login_details: # Verify that a matching email was found
                 self.password_input.clear()
-                conn.close()
                 show_message("Error", "Invalid username or password.")
                 return
 
-            password_hash = password_hash[0] # Convert password_hash to a binary string instead of a tuple
-            
-            if verify_login_password(password_hash, password):
+            user_id, user_password_hash = login_details[0], login_details[1] # Convert user_password_hash to a binary string instead of a tuple
+        
+            if verify_login_password(user_password_hash, password):
+                self.parent().current_user = user_id
                 show_message("Success", "Successful sign in attempt.")
-                self.email_input.clear()
-                self.password_input.clear()
-                conn.close()
+                self.close()
             else:
                 show_message("Error", "Invalid username or password.")
-                self.password_input.clear()
-                conn.close()
-                
             return
         except Exception as e:
             show_message("Error", str(e)) 
@@ -340,8 +355,9 @@ class DropZone(QLabel):
 
 
 class EncyrptionUI(QWidget):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, parent, app_instance):
+        super().__init__(parent)
+        self.app_instance = app_instance
         
         self.layout = QVBoxLayout()
 
@@ -445,7 +461,7 @@ class EncyrptionUI(QWidget):
         
         try:
             for fl in fls:
-                encrypt_file(fl, password)
+                encrypt_file(fl, password, self.app_instance.current_user)
             show_message("Success", "All files have been successfully encrypted.")
             self.file_path_input.clear()
         except Exception as e:
@@ -494,6 +510,7 @@ class App(QMainWindow):
     def __init__(self):
         super().__init__()
         self.title = "File Access Pro (Alpha)"
+        self.current_user = None
         self.initUI()
 
     def initUI(self):
@@ -510,16 +527,19 @@ class App(QMainWindow):
         create_account_action = QAction("Create Account", self)
         manage_account_action = QAction("Manage Accounts", self)
         sign_in_action = QAction("Sign In", self)
-        
+        print_user_action = QAction("Print User", self)
+
         # Connect actions to the methods
         create_account_action.triggered.connect(self.create_account)
         manage_account_action.triggered.connect(self.manage_account)
         sign_in_action.triggered.connect(self.sign_in)
+        print_user_action.triggered.connect(self.print_user)
 
         # Add actions to the 'Account' menu
         account_menu.addAction(create_account_action)
         account_menu.addAction(manage_account_action)
         account_menu.addAction(sign_in_action)
+        account_menu.addAction(print_user_action)
 
         # Add 'Account' menu to the menu bar
         menu_bar.addMenu(account_menu)
@@ -527,7 +547,7 @@ class App(QMainWindow):
         # self.setWindowTitle(self.title)
         self.resize(600, 750)
 
-        central_widget = EncyrptionUI()
+        central_widget = EncyrptionUI(self, self)
 
         # Set the central widget to the QMainWindow
         self.setCentralWidget(central_widget)
@@ -548,6 +568,8 @@ class App(QMainWindow):
         sign_in = SignInDialog(self)
         sign_in.show()
 
+    def print_user(self):
+        return print(self.current_user)
 
 
 if __name__ == "__main__":
