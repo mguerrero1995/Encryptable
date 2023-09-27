@@ -139,6 +139,18 @@ def hash_login_password(password: str) -> bytes:
 def verify_login_password(stored_password_hash: bytes, provided_password: str) -> bool:
     return bcrypt.checkpw(provided_password.encode("utf-8"), stored_password_hash)
 
+def is_valid_email(email):
+    """
+    Check if the provided string is a valid email format.
+    
+    :param email: The email address string to check.
+    :return: True if valid, False otherwise.
+    """
+    # The regular expression pattern for a valid email
+    pattern = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
+    
+    return bool(re.match(pattern, email))
+
 def show_message(title, message):
     msg = QMessageBox()
     msg.setWindowTitle(title)
@@ -232,11 +244,15 @@ class CreateAccountDialog(QDialog):
         password = self.password_input.text()
         confirm_password = self.confirm_password_input.text()
 
+        if not is_valid_email(email):
+            show_message("Error", "Invalid email address. Please enter a valid email.")
+            return
+
         if password != confirm_password:
-            show_message("Error", "Passwords do not match.")
             self.email_input.clear()
             self.password_input.clear()
             self.confirm_password_input.clear()
+            show_message("Error", "Passwords do not match.")
             return
 
         user_password_hash = hash_login_password(password)
@@ -259,10 +275,33 @@ class CreateAccountDialog(QDialog):
             show_message("Error", str(e))
 
 
-# Currently testing how to check if current password matches the current users stored password without making a call to the database
-# Need to figure out how EditUserPassword can get the App's class attribute "current_user_password_hash"
-# This class is called by the ManageAccountDialog class
-# Then I need to update the password in the backend if the current password is correct and the new passwords match
+class ManageAccountDialog(QDialog):
+    def __init__(self, parent, app_instance):
+        super().__init__(parent)
+        self.app_instance = app_instance
+
+        self.setWindowTitle("Manage Account")
+
+        self.manage_account_layout = QFormLayout()
+
+        self.email_label = QLabel(f"Email:\n{self.app_instance.current_user_email}")
+        self.edit_email_button = QPushButton("Edit")
+        self.edit_email_button.setMaximumWidth(75)
+
+        self.current_password_label = QLabel("Password:\n********")
+        self.edit_password_button = QPushButton("Edit")
+        self.edit_password_button.clicked.connect(self.edit_user_password_clicked)
+        self.edit_password_button.setMaximumWidth(75)
+
+        self.manage_account_layout.addRow(self.email_label, self.edit_email_button)
+        self.manage_account_layout.addRow(self.current_password_label, self.edit_password_button)
+
+        self.setLayout(self.manage_account_layout)
+        
+    def edit_user_password_clicked(self):
+        edit_user_password = EditUserPassword(self, self.app_instance)
+        edit_user_password.show()
+
 class EditUserPassword(QDialog):
     def __init__(self, parent, app_instance):
         super().__init__(parent)
@@ -337,33 +376,6 @@ class EditUserPassword(QDialog):
             self.close()
         except Exception as e:
             show_message("Error", str(e))
-
-class ManageAccountDialog(QDialog):
-    def __init__(self, parent, app_instance):
-        super().__init__(parent)
-        self.app_instance = app_instance
-
-        self.setWindowTitle("Manage Account")
-
-        self.manage_account_layout = QFormLayout()
-
-        self.email_label = QLabel(f"Email:\n{self.app_instance.current_user_email}")
-        self.edit_email_button = QPushButton("Edit")
-        self.edit_email_button.setMaximumWidth(75)
-
-        self.current_password_label = QLabel("Password:\n********")
-        self.edit_password_button = QPushButton("Edit")
-        self.edit_password_button.clicked.connect(self.edit_user_password_clicked)
-        self.edit_password_button.setMaximumWidth(75)
-
-        self.manage_account_layout.addRow(self.email_label, self.edit_email_button)
-        self.manage_account_layout.addRow(self.current_password_label, self.edit_password_button)
-
-        self.setLayout(self.manage_account_layout)
-        
-    def edit_user_password_clicked(self):
-        edit_user_password = EditUserPassword(self, self.app_instance)
-        edit_user_password.show()
 
 class SignInDialog(QDialog):
     def __init__(self, parent, app_instance):
