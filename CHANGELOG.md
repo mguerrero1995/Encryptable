@@ -31,3 +31,4 @@
     - *Create Account:* Users now have the option to create an account by providing an email and password. Passwords are securely stored as hashes.
     - *Logged In State Tracking:* Application can now track if and which user is currently logged in.
     - *File Metadata Storage:* When a logged in user encrypts a file, the encryption data for that file is stored securely as hashed data in the encrypted_files table. Similarly, when a file is decrypted by a logged in user, the entry for that file is deleted from the encrypted_files table.
+    - *Change User Password:* Allows users to change their sign in password.

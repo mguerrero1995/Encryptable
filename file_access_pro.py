@@ -20,6 +20,8 @@ from PyQt6.QtWidgets import (QApplication, QDialog, QFileDialog, QFormLayout,
                              QVBoxLayout, QWidget)
 
 # Configurations for app
+APP_NAME = "File Access Pro (Alpha)"
+
 SIGNATURE = b'FAP_ENC'  # Your unique file signature, converted to bytes
 HEADER_ADDITIONAL_LENGTH = 5  # The length of the additional header information, in bytes
 
@@ -273,19 +275,23 @@ class EditUserPassword(QDialog):
         self.current_password_label = QLabel("Current Password:")
         self.current_password_input = QLineEdit()
         self.current_password_input.setEchoMode(QLineEdit.EchoMode.Password)  # Hide password input
+        self.current_password_input.setMinimumWidth(150)
         self.current_password_input.setMaximumWidth(300)
 
         self.new_password_label = QLabel("New Password:")
         self.new_password_input = QLineEdit()
         self.new_password_input.setEchoMode(QLineEdit.EchoMode.Password)  # Hide password input
+        self.new_password_input.setMinimumWidth(150)
         self.new_password_input.setMaximumWidth(300)
 
         self.confirm_new_password_label = QLabel("Confirm New Password:")
         self.confirm_new_password_input = QLineEdit()
         self.confirm_new_password_input.setEchoMode(QLineEdit.EchoMode.Password)  # Hide password input
+        self.confirm_new_password_input.setMinimumWidth(150)
         self.confirm_new_password_input.setMaximumWidth(300)
 
         self.change_password_button = QPushButton("Change Password")
+        self.change_password_button.setMaximumWidth(150)
         self.change_password_button.clicked.connect(self.change_password_clicked)
 
         self.edit_user_password_layout.addRow(self.current_password_label, self.current_password_input)
@@ -314,11 +320,23 @@ class EditUserPassword(QDialog):
             show_message("Error", "New passwords do not match.")
             return
         
-        self.current_password_input.clear()
-        self.new_password_input.clear()
-        self.confirm_new_password_input.clear()
-        show_message("Password successfully changed.")
-        self.close()
+        new_user_password_hash = hash_login_password(new_password)
+
+        try:
+            # Connect to database
+            with sqlite3.connect("accounts_database.db") as conn:
+                cur = conn.cursor()
+
+                # Get password hash and salt for the provided email 
+                cur.execute("UPDATE users SET user_password_hash = ? WHERE user_id = ?", (new_user_password_hash, self.app_instance.current_user_id))
+            
+            self.current_password_input.clear()
+            self.new_password_input.clear()
+            self.confirm_new_password_input.clear()
+            show_message("Success", "Password successfully changed.")
+            self.close()
+        except Exception as e:
+            show_message("Error", str(e))
 
 class ManageAccountDialog(QDialog):
     def __init__(self, parent, app_instance):
@@ -344,13 +362,14 @@ class ManageAccountDialog(QDialog):
         self.setLayout(self.manage_account_layout)
         
     def edit_user_password_clicked(self):
-        edit_user_password = EditUserPassword(self, self)
+        edit_user_password = EditUserPassword(self, self.app_instance)
         edit_user_password.show()
 
 class SignInDialog(QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, parent, app_instance):
         super().__init__(parent)
-        
+        self.app_instance = app_instance
+
         self.setWindowTitle("Sign In")
 
         self.sign_in_layout = QVBoxLayout()
@@ -394,10 +413,12 @@ class SignInDialog(QDialog):
             user_id, user_password_hash = login_details[0], login_details[1] # Convert user_password_hash to a binary string instead of a tuple
         
             if verify_login_password(user_password_hash, password):
-                self.parent().current_user = user_id
-                self.parent().current_user_email = email
-                self.parent().current_user_password_hash = user_password_hash
-                self.parent().manage_account_action.setEnabled(True)
+                self.app_instance.current_user_id = user_id
+                self.app_instance.current_user_email = email
+                self.app_instance.current_user_password_hash = user_password_hash
+                self.app_instance.title = f"{APP_NAME}   ({email})"
+                self.app_instance.setWindowTitle(self.app_instance.title)
+                self.app_instance.manage_account_action.setEnabled(True)
                 self.email_input.clear()
                 self.password_input.clear()
                 self.close()
@@ -538,7 +559,7 @@ class EncyrptionUI(QWidget):
         
         try:
             for fl in fls:
-                encrypt_file(fl, password, self.app_instance.current_user)
+                encrypt_file(fl, password, self.app_instance.current_user_id)
             show_message("Success", "All files have been successfully encrypted.")
             self.file_path_input.clear()
         except Exception as e:
@@ -567,7 +588,7 @@ class EncyrptionUI(QWidget):
         
         try:
             for fl in fls:
-                decrypt_file(fl, password, self.app_instance.current_user)
+                decrypt_file(fl, password, self.app_instance.current_user_id)
             show_message("Success", "All files have been successfully decrypted.")
             self.file_path_input.clear()
         except Exception as e:
@@ -586,8 +607,8 @@ class EncyrptionUI(QWidget):
 class App(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.title = "File Access Pro (Alpha)"
-        self.current_user = None
+        self.title = APP_NAME
+        self.current_user_id = None
         self.current_user_email = None
         self.current_user_password_hash = None
         self.initUI()
@@ -645,11 +666,12 @@ class App(QMainWindow):
         manage_account.show()
 
     def sign_in(self):
-        sign_in = SignInDialog(self)
+        sign_in = SignInDialog(self, self)
         sign_in.show()
 
     def print_user(self):
-        show_message("Current User", f"Current user is {self.current_user}.")
+        show_message("Current User", f"Current user is {self.current_user_id}.")
+        print(self.title, self.current_user_email, self.current_user_password_hash)
         return
 
 
@@ -658,4 +680,3 @@ if __name__ == "__main__":
     # app.setStyle("Windows")
     ex = App()
     sys.exit(app.exec())
-
