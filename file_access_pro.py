@@ -14,10 +14,10 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QAction, QIcon, QPixmap
-from PyQt6.QtWidgets import (QApplication, QDialog, QFileDialog, QFrame,
-                             QHBoxLayout, QLabel, QLineEdit, QMainWindow,
-                             QMenu, QMessageBox, QPushButton, QVBoxLayout,
-                             QWidget)
+from PyQt6.QtWidgets import (QApplication, QDialog, QFileDialog, QFormLayout,
+                             QFrame, QHBoxLayout, QLabel, QLineEdit,
+                             QMainWindow, QMenu, QMessageBox, QPushButton,
+                             QVBoxLayout, QWidget)
 
 # Configurations for app
 SIGNATURE = b'FAP_ENC'  # Your unique file signature, converted to bytes
@@ -151,7 +151,7 @@ class PasswordDialog(QDialog):
 
         self.setWindowTitle("Enter Password")
         
-        self.layout = QVBoxLayout()  # Main layout
+        self.password_dialog_layout = QVBoxLayout()  # Main layout
         
         # Password input field and Eyeball icon layout
         self.input_layout = QHBoxLayout()
@@ -171,15 +171,15 @@ class PasswordDialog(QDialog):
         self.toggle_password_btn.clicked.connect(self.toggle_password_visibility)
         self.input_layout.addWidget(self.toggle_password_btn)
 
-        self.layout.addLayout(self.input_layout)
+        self.password_dialog_layout.addLayout(self.input_layout)
 
         # Encrypt/Decrypt action button
         self.action_btn = QPushButton(self.mode, self)
         self.action_btn.clicked.connect(self.accept)
-        self.layout.addWidget(self.action_btn)
-        self.layout.setAlignment(self.action_btn, Qt.AlignmentFlag.AlignCenter)  # Center-align the button
+        self.password_dialog_layout.addWidget(self.action_btn)
+        self.password_dialog_layout.setAlignment(self.action_btn, Qt.AlignmentFlag.AlignCenter)  # Center-align the button
         
-        self.setLayout(self.layout)
+        self.setLayout(self.password_dialog_layout)
 
     def toggle_password_visibility(self, checked):
         if checked:
@@ -255,25 +255,97 @@ class CreateAccountDialog(QDialog):
             self.close()
         except Exception as e:
             show_message("Error", str(e))
-        
-    
-class ManageAccountDialog(QDialog):
-    def __init__(self, parent=None):
+
+
+# Currently testing how to check if current password matches the current users stored password without making a call to the database
+# Need to figure out how EditUserPassword can get the App's class attribute "current_user_password_hash"
+# This class is called by the ManageAccountDialog class
+# Then I need to update the password in the backend if the current password is correct and the new passwords match
+class EditUserPassword(QDialog):
+    def __init__(self, parent, app_instance):
         super().__init__(parent)
+        self.app_instance = app_instance
+        
+        self.setWindowTitle("Change Password")
+
+        self.edit_user_password_layout = QFormLayout()
+
+        self.current_password_label = QLabel("Current Password:")
+        self.current_password_input = QLineEdit()
+        self.current_password_input.setEchoMode(QLineEdit.EchoMode.Password)  # Hide password input
+        self.current_password_input.setMaximumWidth(300)
+
+        self.new_password_label = QLabel("New Password:")
+        self.new_password_input = QLineEdit()
+        self.new_password_input.setEchoMode(QLineEdit.EchoMode.Password)  # Hide password input
+        self.new_password_input.setMaximumWidth(300)
+
+        self.confirm_new_password_label = QLabel("Confirm New Password:")
+        self.confirm_new_password_input = QLineEdit()
+        self.confirm_new_password_input.setEchoMode(QLineEdit.EchoMode.Password)  # Hide password input
+        self.confirm_new_password_input.setMaximumWidth(300)
+
+        self.change_password_button = QPushButton("Change Password")
+        self.change_password_button.clicked.connect(self.change_password_clicked)
+
+        self.edit_user_password_layout.addRow(self.current_password_label, self.current_password_input)
+        self.edit_user_password_layout.addRow(self.new_password_label, self.new_password_input)
+        self.edit_user_password_layout.addRow(self.confirm_new_password_label, self.confirm_new_password_input)
+        self.edit_user_password_layout.addWidget(self.change_password_button)    
+
+        self.setLayout(self.edit_user_password_layout)
+        
+    def change_password_clicked(self):
+        current_password = self.current_password_input.text()
+        new_password = self.new_password_input.text()
+        confirm_password = self.confirm_new_password_input.text()
+
+        if not verify_login_password(self.app_instance.current_user_password_hash, current_password):
+            self.current_password_input.clear()
+            self.new_password_input.clear()
+            self.confirm_new_password_input.clear()
+            show_message("Error", "Current password is incorrect.")
+            return
+
+        if new_password != confirm_password:
+            self.current_password_input.clear()
+            self.new_password_input.clear()
+            self.confirm_new_password_input.clear()
+            show_message("Error", "New passwords do not match.")
+            return
+        
+        self.current_password_input.clear()
+        self.new_password_input.clear()
+        self.confirm_new_password_input.clear()
+        show_message("Password successfully changed.")
+        self.close()
+
+class ManageAccountDialog(QDialog):
+    def __init__(self, parent, app_instance):
+        super().__init__(parent)
+        self.app_instance = app_instance
 
         self.setWindowTitle("Manage Account")
 
-        self.layout = QVBoxLayout()
+        self.manage_account_layout = QFormLayout()
 
-        self.change_email_label = QLabel("Change Email (Placeholder)")
+        self.email_label = QLabel(f"Email:\n{self.app_instance.current_user_email}")
+        self.edit_email_button = QPushButton("Edit")
+        self.edit_email_button.setMaximumWidth(75)
 
-        self.change_password_label = QLabel("Change Password (Placeholder)")
+        self.current_password_label = QLabel("Password:\n********")
+        self.edit_password_button = QPushButton("Edit")
+        self.edit_password_button.clicked.connect(self.edit_user_password_clicked)
+        self.edit_password_button.setMaximumWidth(75)
 
-        self.layout.addWidget(self.change_email_label)
-        self.layout.addWidget(self.change_password_label)
+        self.manage_account_layout.addRow(self.email_label, self.edit_email_button)
+        self.manage_account_layout.addRow(self.current_password_label, self.edit_password_button)
 
-        self.setLayout(self.layout)
-
+        self.setLayout(self.manage_account_layout)
+        
+    def edit_user_password_clicked(self):
+        edit_user_password = EditUserPassword(self, self)
+        edit_user_password.show()
 
 class SignInDialog(QDialog):
     def __init__(self, parent=None):
@@ -281,7 +353,7 @@ class SignInDialog(QDialog):
         
         self.setWindowTitle("Sign In")
 
-        self.layout = QVBoxLayout()
+        self.sign_in_layout = QVBoxLayout()
 
         self.email_label = QLabel("Email:")
         self.email_input = QLineEdit()
@@ -293,13 +365,13 @@ class SignInDialog(QDialog):
         self.login_button = QPushButton("Login")
         self.login_button.clicked.connect(self.login_clicked)
 
-        self.layout.addWidget(self.email_label)
-        self.layout.addWidget(self.email_input)
-        self.layout.addWidget(self.password_label)
-        self.layout.addWidget(self.password_input)
-        self.layout.addWidget(self.login_button)
+        self.sign_in_layout.addWidget(self.email_label)
+        self.sign_in_layout.addWidget(self.email_input)
+        self.sign_in_layout.addWidget(self.password_label)
+        self.sign_in_layout.addWidget(self.password_input)
+        self.sign_in_layout.addWidget(self.login_button)
 
-        self.setLayout(self.layout)
+        self.setLayout(self.sign_in_layout)
 
     def login_clicked(self):
         # Handle login
@@ -323,9 +395,11 @@ class SignInDialog(QDialog):
         
             if verify_login_password(user_password_hash, password):
                 self.parent().current_user = user_id
+                self.parent().current_user_email = email
+                self.parent().current_user_password_hash = user_password_hash
+                self.parent().manage_account_action.setEnabled(True)
                 self.email_input.clear()
                 self.password_input.clear()
-                show_message("Success", "Successful sign in attempt.")
                 self.close()
             else:
                 show_message("Error", "Invalid username or password.")
@@ -365,12 +439,12 @@ class EncyrptionUI(QWidget):
         self.layout = QVBoxLayout()
 
         # Create a main layout
-        main_layout = QVBoxLayout()
+        self.main_layout = QVBoxLayout()
 
         # Label
         self.file_path_label = QLabel("Enter File Path(s) or Drag & Drop File(s):")
-        main_layout.addWidget(self.file_path_label)
-        main_layout.setAlignment(self.file_path_label, Qt.AlignmentFlag.AlignCenter)
+        self.main_layout.addWidget(self.file_path_label)
+        self.main_layout.setAlignment(self.file_path_label, Qt.AlignmentFlag.AlignCenter)
 
 
         # File Path input field and Browse button layout
@@ -394,40 +468,40 @@ class EncyrptionUI(QWidget):
         # Add a horizontal stretch after the Browse button
         path_layout.addStretch()
 
-        main_layout.addLayout(path_layout)
+        self.main_layout.addLayout(path_layout)
 
         # Drag and Drop area
-        drop_zone_layout = QHBoxLayout()
-        drop_zone_layout.addStretch() # Add a stretch before the drop zone so that it stays centered when the window expands
+        self.drop_zone_layout = QHBoxLayout()
+        self.drop_zone_layout.addStretch() # Add a stretch before the drop zone so that it stays centered when the window expands
         self.drop_zone = DropZone(self)
         self.drop_zone.setFixedWidth(650)  # Set the maximum width
-        drop_zone_layout.addWidget(self.drop_zone)
-        drop_zone_layout.addStretch() # Add a stretch after the drop zone so that it stays centered when the window expands
+        self.drop_zone_layout.addWidget(self.drop_zone)
+        self.drop_zone_layout.addStretch() # Add a stretch after the drop zone so that it stays centered when the window expands
 
-        main_layout.addLayout(drop_zone_layout)
-        
+        self.main_layout.addLayout(self.drop_zone_layout)
+
         # Encrypt button
         self.encrypt_button = QPushButton("Encrypt", self)
         self.encrypt_button.setFixedWidth(55)
         self.encrypt_button.clicked.connect(self.encrypt_clicked)
-        main_layout.addWidget(self.encrypt_button)
-        main_layout.setAlignment(self.encrypt_button, Qt.AlignmentFlag.AlignCenter)
+        self.main_layout.addWidget(self.encrypt_button)
+        self.main_layout.setAlignment(self.encrypt_button, Qt.AlignmentFlag.AlignCenter)
 
         # Decrypt button
         self.decrypt_button = QPushButton("Decrypt", self)
         self.decrypt_button.setFixedWidth(55)
         self.decrypt_button.clicked.connect(self.decrypt_clicked)
-        main_layout.addWidget(self.decrypt_button)
-        main_layout.setAlignment(self.decrypt_button, Qt.AlignmentFlag.AlignCenter)
+        self.main_layout.addWidget(self.decrypt_button)
+        self.main_layout.setAlignment(self.decrypt_button, Qt.AlignmentFlag.AlignCenter)
 
 
         # Set fixed spacing between widgets
-        main_layout.setSpacing(20)
+        self.main_layout.setSpacing(20)
 
         # Spacer to occupy any additional vertical space
-        main_layout.addStretch(1)
+        self.main_layout.addStretch(1)
 
-        self.setLayout(main_layout)
+        self.setLayout(self.main_layout)
 
 
     @staticmethod
@@ -514,6 +588,8 @@ class App(QMainWindow):
         super().__init__()
         self.title = "File Access Pro (Alpha)"
         self.current_user = None
+        self.current_user_email = None
+        self.current_user_password_hash = None
         self.initUI()
 
     def initUI(self):
@@ -521,39 +597,40 @@ class App(QMainWindow):
         self.setGeometry(100, 100, 600, 750)
 
         # Create a menu bar
-        menu_bar = self.menuBar()
+        self.menu_bar = self.menuBar()
 
         # Create an 'Account' menu
-        account_menu = QMenu("Account", self)
+        self.account_menu = QMenu("Account", self)
 
         # Create actions to add to the 'Account' menu
-        create_account_action = QAction("Create Account", self)
-        manage_account_action = QAction("Manage Accounts", self)
-        sign_in_action = QAction("Sign In", self)
-        print_user_action = QAction("Print User", self)
+        self.create_account_action = QAction("Create Account", self)
+        self.manage_account_action = QAction("Manage Accounts", self)
+        self.manage_account_action.setEnabled(False) # Disabled by default unless there is a user logged in
+        self.sign_in_action = QAction("Sign In", self)
+        self.print_user_action = QAction("Print User", self)
 
         # Connect actions to the methods
-        create_account_action.triggered.connect(self.create_account)
-        manage_account_action.triggered.connect(self.manage_account)
-        sign_in_action.triggered.connect(self.sign_in)
-        print_user_action.triggered.connect(self.print_user)
+        self.create_account_action.triggered.connect(self.create_account)
+        self.manage_account_action.triggered.connect(self.manage_account)
+        self.sign_in_action.triggered.connect(self.sign_in)
+        self.print_user_action.triggered.connect(self.print_user)
 
         # Add actions to the 'Account' menu
-        account_menu.addAction(create_account_action)
-        account_menu.addAction(manage_account_action)
-        account_menu.addAction(sign_in_action)
-        account_menu.addAction(print_user_action)
+        self.account_menu.addAction(self.create_account_action)
+        self.account_menu.addAction(self.manage_account_action)
+        self.account_menu.addAction(self.sign_in_action)
+        self.account_menu.addAction(self.print_user_action)
 
         # Add 'Account' menu to the menu bar
-        menu_bar.addMenu(account_menu)
+        self.menu_bar.addMenu(self.account_menu)
 
         # self.setWindowTitle(self.title)
         self.resize(600, 750)
 
-        central_widget = EncyrptionUI(self, self)
+        self.central_widget = EncyrptionUI(self, self)
 
         # Set the central widget to the QMainWindow
-        self.setCentralWidget(central_widget)
+        self.setCentralWidget(self.central_widget)
 
         self.show()
     
@@ -564,7 +641,7 @@ class App(QMainWindow):
         new_account.show()
 
     def manage_account(self):
-        manage_account = ManageAccountDialog(self)
+        manage_account = ManageAccountDialog(self, self)
         manage_account.show()
 
     def sign_in(self):
@@ -572,12 +649,13 @@ class App(QMainWindow):
         sign_in.show()
 
     def print_user(self):
-        show_message("Current User", f"Currest user is {self.current_user}.")
+        show_message("Current User", f"Current user is {self.current_user}.")
         return
 
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    # app.setStyle("Windows")
     ex = App()
     sys.exit(app.exec())
 
