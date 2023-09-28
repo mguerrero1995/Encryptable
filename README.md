@@ -1,4 +1,6 @@
+![FullLogo_Transparent_NoBuffer](https://github.com/mguerrero1995/Encryptable/assets/51759047/4c4baaec-7d7d-402d-ac63-ad789f3a9409)
 # Encryptable
+
 
 **Owner/Developer:** Manny Guerrero  
 **Website:** https://brand.page/Encryptable
