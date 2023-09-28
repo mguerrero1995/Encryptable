@@ -15,7 +15,7 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QAction, QIcon, QPixmap
 from PyQt6.QtWidgets import (QApplication, QDialog, QFileDialog, QFormLayout,
-                             QFrame, QHBoxLayout, QLabel, QLineEdit,
+                             QFrame, QHBoxLayout, QLabel, QLineEdit, QCheckBox,
                              QMainWindow, QMenu, QMessageBox, QPushButton,
                              QVBoxLayout, QWidget)
 
@@ -66,9 +66,6 @@ def encrypt_file(file_path, password, user_id):
         encrypted_file_path = file_path + ".cyph"
         with open(encrypted_file_path, "wb") as f:
             f.write(salt + iv + ciphertext)
-
-        # Optionally delete the original file after encryption
-        os.remove(file_path)
         
         # Write the encryption metadata to the database if a user is logged in
         if user_id:
@@ -116,9 +113,6 @@ def decrypt_file(file_path, password, user_id):
 
         with open(decrypted_file_path, "wb") as f:
             f.write(plaintext)
-        
-        # Optionally delete the encrypted file after decryption
-        os.remove(file_path)
 
         # Delete the encryption metadata from the database if a user is logged in
         if user_id:
@@ -516,23 +510,52 @@ class EncyrptionUI(QWidget):
 
         self.function_buttons_layout = QHBoxLayout()
 
+        # Add a stretch before the buttons to push them towards the center
+        self.function_buttons_layout.addStretch()
+
         # Encrypt button
         self.encrypt_button = QPushButton("Encrypt", self)
         self.encrypt_button.setFixedWidth(55)
         self.encrypt_button.clicked.connect(self.encrypt_clicked)
-        
+        self.function_buttons_layout.addWidget(self.encrypt_button)
+
         # Decrypt button
         self.decrypt_button = QPushButton("Decrypt", self)
         self.decrypt_button.setFixedWidth(55)
         self.decrypt_button.clicked.connect(self.decrypt_clicked)
-
-        # Position the encrypt/decrypt buttons
-        self.function_buttons_layout.addWidget(self.encrypt_button)
         self.function_buttons_layout.addWidget(self.decrypt_button)
-        self.function_buttons_layout.setAlignment(self.encrypt_button, Qt.AlignmentFlag.AlignCenter)
-        self.function_buttons_layout.setAlignment(self.decrypt_button, Qt.AlignmentFlag.AlignCenter)
-        
+
+        # Add another stretch after the buttons to keep them centered
+        self.function_buttons_layout.addStretch()
+
+        # A fixed space between the Encrypt and Decrypt buttons
+        self.function_buttons_layout.addSpacing(20)
+
         self.main_layout.addLayout(self.function_buttons_layout)
+
+        # Create a layout to organize the configurations/settings
+        self.configurations_layout = QHBoxLayout()
+        self.configurations_layout.setContentsMargins(5, 5, 5, 5)
+
+        self.configurations_label = QLabel("Configurations:")
+        self.configurations_layout.addWidget(self.configurations_label)
+        
+        self.retain_original_file = QCheckBox("Retain Original File(s)")
+        self.retain_original_file.setChecked(False)
+        self.configurations_layout.addWidget(self.retain_original_file)
+
+        self.configurations_layout.addStretch()
+
+        # Create a container to encapsulate the configurations layout
+        self.configurations_container = QWidget()
+        self.configurations_container.setObjectName("configurationsContainer")
+        self.configurations_container.setStyleSheet("#configurationsContainer { border: 1px solid black; padding: 10px; }")
+        self.configurations_container.setFixedWidth(650)
+
+        self.configurations_container.setLayout(self.configurations_layout)
+        
+        self.main_layout.addWidget(self.configurations_container)
+        self.main_layout.setAlignment(self.configurations_container, Qt.AlignmentFlag.AlignCenter)
 
         # Set fixed spacing between widgets
         self.main_layout.setSpacing(20)
@@ -558,6 +581,8 @@ class EncyrptionUI(QWidget):
     def encrypt_clicked(self):
         file_path = self.file_path_input.text()
         fls = self.extract_file_paths(file_path) # Use extract_file_paths method in case there are multiple files selected
+        retain_original = self.retain_original_file.isChecked()
+
         if not fls:
             show_message("Error", "Please enter a file path.")
             return
@@ -578,6 +603,8 @@ class EncyrptionUI(QWidget):
         try:
             for fl in fls:
                 encrypt_file(fl, password, self.app_instance.current_user_id)
+                if not retain_original: # Optionally delete the encrypted file after decryption
+                    os.remove(fl)
             show_message("Success", "All files have been successfully encrypted.")
             self.file_path_input.clear()
         except Exception as e:
@@ -586,6 +613,8 @@ class EncyrptionUI(QWidget):
     def decrypt_clicked(self):
         file_path = self.file_path_input.text()
         fls = self.extract_file_paths(file_path) 
+        retain_original = self.retain_original_file.isChecked()
+
         if not fls:
             show_message("Error", "Please enter a file path.")
             return
@@ -607,6 +636,8 @@ class EncyrptionUI(QWidget):
         try:
             for fl in fls:
                 decrypt_file(fl, password, self.app_instance.current_user_id)
+                if not retain_original: # Optionally delete the encrypted file after decryption
+                    os.remove(fl)
             show_message("Success", "All files have been successfully decrypted.")
             self.file_path_input.clear()
         except Exception as e:
