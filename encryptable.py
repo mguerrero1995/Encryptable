@@ -514,20 +514,25 @@ class EncyrptionUI(QWidget):
 
         self.main_layout.addLayout(self.drop_zone_layout)
 
+        self.function_buttons_layout = QHBoxLayout()
+
         # Encrypt button
         self.encrypt_button = QPushButton("Encrypt", self)
         self.encrypt_button.setFixedWidth(55)
         self.encrypt_button.clicked.connect(self.encrypt_clicked)
-        self.main_layout.addWidget(self.encrypt_button)
-        self.main_layout.setAlignment(self.encrypt_button, Qt.AlignmentFlag.AlignCenter)
-
+        
         # Decrypt button
         self.decrypt_button = QPushButton("Decrypt", self)
         self.decrypt_button.setFixedWidth(55)
         self.decrypt_button.clicked.connect(self.decrypt_clicked)
-        self.main_layout.addWidget(self.decrypt_button)
-        self.main_layout.setAlignment(self.decrypt_button, Qt.AlignmentFlag.AlignCenter)
 
+        # Position the encrypt/decrypt buttons
+        self.function_buttons_layout.addWidget(self.encrypt_button)
+        self.function_buttons_layout.addWidget(self.decrypt_button)
+        self.function_buttons_layout.setAlignment(self.encrypt_button, Qt.AlignmentFlag.AlignCenter)
+        self.function_buttons_layout.setAlignment(self.decrypt_button, Qt.AlignmentFlag.AlignCenter)
+        
+        self.main_layout.addLayout(self.function_buttons_layout)
 
         # Set fixed spacing between widgets
         self.main_layout.setSpacing(20)
