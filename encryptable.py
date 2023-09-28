@@ -20,9 +20,9 @@ from PyQt6.QtWidgets import (QApplication, QDialog, QFileDialog, QFormLayout,
                              QVBoxLayout, QWidget)
 
 # Configurations for app
-APP_NAME = "File Access Pro (Alpha)"
+APP_NAME = "Encryptable (Alpha)"
 
-SIGNATURE = b'FAP_ENC'  # Your unique file signature, converted to bytes
+SIGNATURE = b'ENCRYPTABLE_APP'  # Your unique file signature, converted to bytes
 HEADER_ADDITIONAL_LENGTH = 5  # The length of the additional header information, in bytes
 
 # File path configurations for the app

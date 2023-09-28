@@ -1,4 +1,4 @@
-# FileAccessPro
+# Encryptable
 
 **Developer:** Manny Guerrero  
 **Email:** mmguerrero1995@gmail.com
@@ -13,7 +13,7 @@
 
 This application is currently in its alpha/development stage. While we strive to develop a robust and secure file encryption tool, the application may contain bugs that could potentially lead to loss of data. 
 
-**Users are solely responsible for any files that become irrecoverable due to use or misuse of FileAccessPro. It is highly recommended to exercise caution when using the application in its current state, including maintaining backups of all files to be encrypted or decrypted.**
+**Users are solely responsible for any files that become irrecoverable due to use or misuse of Encryptable. It is highly recommended to exercise caution when using the application in its current state, including maintaining backups of all files to be encrypted or decrypted.**
 
 We appreciate your understanding and welcome feedback and reports of any issues you encounter during use.
 
@@ -31,7 +31,7 @@ We appreciate your understanding and welcome feedback and reports of any issues 
 
 ## Overview
 
-FileAccessPro is an open-source, free-to-use desktop application designed to offer robust file encryption and decryption solutions with password protection. Safeguard your files with heightened security right from your desktop.
+Encryptable is an open-source, free-to-use desktop application designed to offer robust file encryption and decryption solutions with password protection. Safeguard your files with heightened security right from your desktop.
 
 ## Features
 
@@ -44,7 +44,7 @@ FileAccessPro is an open-source, free-to-use desktop application designed to off
 ## How to Use
 
 1. **Download and Install:** Clone the repository or download the source code and set up the necessary Python environment.
-2. **Open the Application:** Run the `file_access_pro.py` script to open the application.
+2. **Open the Application:** Run the `encryptable.py` script to open the application.
 3. **Adding Files:**
     - **Browse:** Use the 'Browse' button to select files from your file system.
     - **Drag and Drop:** Simply drag and drop the files into the designated area in the application.
@@ -59,7 +59,7 @@ FileAccessPro is an open-source, free-to-use desktop application designed to off
 
 ## Future Features
 
-We aim to continually evolve FileAccessPro to meet user demands and enhance functionality. Here are some prospective features we are considering for future versions:
+We aim to continually evolve Encryptable to meet user demands and enhance functionality. Here are some prospective features we are considering for future versions:
 
 - **Optional Write Destination:** Allow users to choose a specific destination where the encrypted/decrypted files will be saved.
 - **Multiple Account Support:** Introduce an account system to facilitate batch encryption/decryption processes through a single login password, negating the need to enter a password for each batch. Initially, this feature will be local only.
@@ -76,4 +76,4 @@ This project is open-source and free-to-use under the [MIT License](https://open
 
 ---
 
-We hope FileAccessPro serves you well in securing your files. For any queries or support, feel free to open an issue in the repository.
+We hope Encryptable serves you well in securing your files. For any queries or support, feel free to open an issue in the repository.
