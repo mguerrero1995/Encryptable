@@ -21,6 +21,7 @@ from PyQt6.QtWidgets import (QApplication, QDialog, QFileDialog, QFormLayout,
 
 # Configurations for app
 APP_NAME = "Encryptable (Alpha)"
+APP_LOGO = "./icons/IconOnly.png"
 
 SIGNATURE = b'ENCRYPTABLE_APP'  # Your unique file signature, converted to bytes
 HEADER_ADDITIONAL_LENGTH = 5  # The length of the additional header information, in bytes
@@ -620,6 +621,7 @@ class App(QMainWindow):
     def __init__(self):
         super().__init__()
         self.title = APP_NAME
+        self.app_logo = QIcon(APP_LOGO)
         self.current_user_id = None
         self.current_user_email = None
         self.current_user_password_hash = None
@@ -627,6 +629,7 @@ class App(QMainWindow):
 
     def initUI(self):
         self.setWindowTitle(self.title)
+        self.setWindowIcon(self.app_logo)
         self.setGeometry(100, 100, 600, 750)
 
         # Create a menu bar
