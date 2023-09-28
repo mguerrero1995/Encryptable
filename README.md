@@ -1,10 +1,10 @@
 # Encryptable
 
-**Developer:** Manny Guerrero  
+**Owner/Developer:** Manny Guerrero  
 **Website:** https://brand.page/Encryptable
 **Email:** encryptableservice@gmail.com
 **Owner's Professional LinkedIn:** https://www.linkedin.com/in/manny-g-933970263/
-**Date:** September 27, 2023  
+**Date:** September 28, 2023  
 **Version:** 0.2.0
 **Status:** Alpha / Development Stage
 
@@ -45,17 +45,17 @@ Encryptable is an open-source, free-to-use desktop application designed to offer
 
 ## How to Use
 
-1. **Download and Install:** Clone the repository or download the source code and set up the necessary Python environment.
-2. **Open the Application:** Run the `encryptable.py` script to open the application.
-3. **Adding Files:**
+1. **Download:** Download the `Encryptable_Download.zip` folder.
+2. **Extract Files:** Extract the files to the location that you would like to run the program from (ex: C:\Users\UserName\Desktop).
+3. **Open the Application:**  Run `Encryptable.exe`. To ensure proper functioning of the program, please keep/run the executable in the same folder as the files that it was downloaded with.
+4. **Adding Files:**
     - **Browse:** Use the 'Browse' button to select files from your file system.
     - **Drag and Drop:** Simply drag and drop the files into the designated area in the application.
-4. **Encryption/Decryption:**
+5. **Encryption/Decryption:**
     - **Encrypt:** After adding the files, click on the 'Encrypt' button, enter a secure password, and the files will be encrypted.
     - **Decrypt:** To decrypt, add the encrypted files, click on the "Decrypt" button, and enter the correct password.
         - **Note**: When decrypting multiple files in a batch, ensure all files were encrypted with the same password.
-
-5. **View Encrypted Files:** Encrypted files will have a custom extension. You can find them at the same location as the original files.
+6. **View Encrypted Files:** Encrypted files will have a custom extension. You can find them at the same location as the original files.
 
 ---
 
@@ -63,10 +63,10 @@ Encryptable is an open-source, free-to-use desktop application designed to offer
 
 We aim to continually evolve Encryptable to meet user demands and enhance functionality. Here are some prospective features we are considering for future versions:
 
-- **Optional Write Destination:** Allow users to choose a specific destination where the encrypted/decrypted files will be saved.
 - **Multiple Account Support:** Introduce an account system to facilitate batch encryption/decryption processes through a single login password, negating the need to enter a password for each batch. Initially, this feature will be local only.
 - **Cloud Support:** Extend the functionality to support cloud services, enabling users to encrypt/decrypt files across different devices and integrate with popular cloud storage solutions like Dropbox and Google Drive.
 - **Modernized GUI:** Update and modernize the appearance of the interface to improve the user experience.
+- **Optional Write Destination:** Allow users to choose a specific destination where the encrypted/decrypted files will be saved.
 
 ## Contributing
 
