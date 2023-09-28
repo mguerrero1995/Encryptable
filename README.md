@@ -1,9 +1,10 @@
 # Encryptable
 
 **Developer:** Manny Guerrero  
+**Website:** https://brand.page/Encryptable
 **Email:** encryptableservice@gmail.com
-**LinkedIn:** https://www.linkedin.com/in/manny-g-933970263/
-**Date:** September 26, 2023  
+**Owner's Professional LinkedIn:** https://www.linkedin.com/in/manny-g-933970263/
+**Date:** September 27, 2023  
 **Version:** 0.2.0
 **Status:** Alpha / Development Stage
 
@@ -25,6 +26,7 @@ We appreciate your understanding and welcome feedback and reports of any issues 
 - **User Account Support:** Added a backend SQLite database to support the use of user accounts. 
   - *Create Account:* Users now have the option to create an account by providing an email and password. Passwords are securely stored as hashes.
   - *Logged In State Tracking:* Application can now track if and which user is currently logged in.
+  - *Change Password:* Users can now change their passwords at any time through the 'Manage Acount' toolbar item.
   - *File Metadata Storage:* When a logged in user encrypts a file, the encryption data for that file is stored securely as hashed data in the encrypted_files table. Similarly, when a file is decrypted by a logged in user, the entry for that file is deleted from the encrypted_files table.
 
 ---
