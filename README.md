@@ -1,7 +1,7 @@
 # FileAccessPro
 
 **Developer:** Manny Guerrero  
-**Email:** mmguerrero1995@gmail.com
+**Email:** encryptableservice@gmail.com
 **LinkedIn:** https://www.linkedin.com/in/manny-g-933970263/
 **Date:** September 26, 2023  
 **Version:** 0.2.0
