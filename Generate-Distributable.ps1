@@ -21,6 +21,7 @@ $itemsToZip = @(
     ".\icons",
     ".\accounts_database.db"
     ".\README.md"
+    ".\Privacy Policy.md"
 )
 
 # Create the zip file
