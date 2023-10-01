@@ -1,4 +1,5 @@
 import datetime
+import json
 import os
 import random
 import re
@@ -6,7 +7,6 @@ import sqlite3
 import struct
 import sys
 import time
-import json
 
 import bcrypt
 from cryptography.fernet import Fernet
@@ -16,31 +16,34 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QAction, QIcon, QPixmap
-from PyQt6.QtWidgets import (QApplication, QDialog, QFileDialog, QFormLayout,
-                             QFrame, QHBoxLayout, QLabel, QLineEdit, QCheckBox,
-                             QMainWindow, QMenu, QMessageBox, QPushButton,
-                             QVBoxLayout, QWidget)
+from PyQt6.QtWidgets import (QApplication, QCheckBox, QDialog, QFileDialog,
+                             QFormLayout, QFrame, QHBoxLayout, QLabel,
+                             QLineEdit, QMainWindow, QMenu, QMessageBox,
+                             QPushButton, QVBoxLayout, QWidget)
 
 
 def load_config(config_path, encryption_key):
-    with open(config_path, 'rb') as f:
-        encrypted_data = f.read()
+    try:
+        with open(config_path, 'rb') as f:
+            encrypted_data = f.read()
 
-    cipher_suite = Fernet(encryption_key)
-    decrypted_data = cipher_suite.decrypt(encrypted_data)
+        cipher_suite = Fernet(encryption_key)
+        decrypted_data = cipher_suite.decrypt(encrypted_data)
 
-    decrypted_str = decrypted_data.decode('utf-8')
+        decrypted_str = decrypted_data.decode('utf-8')
 
-    return json.loads(decrypted_str)
-
+        return json.loads(decrypted_str)
+    except:
+        raise ValueError("Config file failed to load.")
 
 # Configurations for app
-config = "./resources/config.json"
+config_file = "./resources/config.json"
 ek = b'5sE83ehZ3E6GgIYx1DkzKbZWiOWhAv3R0YumjC1iHkM='
 
 # Load and decrypt the config
-config_data = load_config(config, ek)
+config_data = load_config(config_file, ek)
 
+# Pull out individual configs
 APP_NAME = config_data["application"]["name"]
 APP_LOGO = config_data["resources"]["app_logo"]
 
