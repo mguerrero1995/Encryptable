@@ -6,8 +6,10 @@ import sqlite3
 import struct
 import sys
 import time
+import json
 
 import bcrypt
+from cryptography.fernet import Fernet
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -19,17 +21,37 @@ from PyQt6.QtWidgets import (QApplication, QDialog, QFileDialog, QFormLayout,
                              QMainWindow, QMenu, QMessageBox, QPushButton,
                              QVBoxLayout, QWidget)
 
+
+def load_config(config_path, encryption_key):
+    with open(config_path, 'rb') as f:
+        encrypted_data = f.read()
+
+    cipher_suite = Fernet(encryption_key)
+    decrypted_data = cipher_suite.decrypt(encrypted_data)
+
+    decrypted_str = decrypted_data.decode('utf-8')
+
+    return json.loads(decrypted_str)
+
+
 # Configurations for app
-APP_NAME = "Encryptable (Alpha)"
-APP_LOGO = "./icons/IconOnly.png"
+config = "./resources/config.json"
+ek = b'5sE83ehZ3E6GgIYx1DkzKbZWiOWhAv3R0YumjC1iHkM='
+
+# Load and decrypt the config
+config_data = load_config(config, ek)
+
+APP_NAME = config_data["application"]["name"]
+APP_LOGO = config_data["resources"]["app_logo"]
+
+GC_CLIENT_ID = config_data["google_cloud_api"]["client_id"]
 
 SIGNATURE = b'ENCRYPTABLE_APP'  # Your unique file signature, converted to bytes
 HEADER_ADDITIONAL_LENGTH = 5  # The length of the additional header information, in bytes
 
 # File path configurations for the app
-SHOW_PW_ICON = "./icons/show_password_icon.png"
-HIDE_PW_ICON = "./icons/hide_password_icon.png"
-
+SHOW_PW_ICON = config_data["resources"]["show_password_icon"]
+HIDE_PW_ICON = config_data["resources"]["hide_password_icon"]
 
 # Generate a key from the password
 def key_from_password(password, salt):
@@ -70,7 +92,7 @@ def encrypt_file(file_path, password, user_id):
         # Write the encryption metadata to the database if a user is logged in
         if user_id:
             try:
-                with sqlite3.connect("accounts_database.db") as conn:
+                with sqlite3.connect("./resources/accounts_database.db") as conn:
                     cur = conn.cursor()
                     cur.execute("INSERT INTO encrypted_files (user_id, file_name, encryption_signature, encrypted_date) "
                                 "VALUES (?, ?, ?, ?)", 
@@ -117,7 +139,7 @@ def decrypt_file(file_path, password, user_id):
         # Delete the encryption metadata from the database if a user is logged in
         if user_id:
             try:
-                with sqlite3.connect("accounts_database.db") as conn:
+                with sqlite3.connect("./resources/accounts_database.db") as conn:
                     cur = conn.cursor()
                     cur.execute("DELETE FROM encrypted_files WHERE user_id = ? AND file_name = ?", 
                                 (user_id, os.path.basename(file_path)))
@@ -254,7 +276,7 @@ class CreateAccountDialog(QDialog):
 
         try:
             # Connect to database
-            with sqlite3.connect("accounts_database.db") as conn:
+            with sqlite3.connect("./resources/accounts_database.db") as conn:
                 cur = conn.cursor()
 
                 # Insert a new record into the users table with the email and password
@@ -358,7 +380,7 @@ class EditUserPassword(QDialog):
 
         try:
             # Connect to database
-            with sqlite3.connect("accounts_database.db") as conn:
+            with sqlite3.connect("./resources/accounts_database.db") as conn:
                 cur = conn.cursor()
 
                 # Get password hash and salt for the provided email 
@@ -406,7 +428,7 @@ class SignInDialog(QDialog):
 
         try:
             # Connect to database
-            with sqlite3.connect("accounts_database.db") as conn:
+            with sqlite3.connect("./resources/accounts_database.db") as conn:
                 cur = conn.cursor()
 
                 # Get password hash and salt for the provided email 

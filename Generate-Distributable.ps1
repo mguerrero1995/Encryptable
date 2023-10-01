@@ -5,10 +5,13 @@ $ErrorActionPreference = 'Stop'
 $zipFileName = "Encryptable_Download.zip"
 
 # Name of your main Python script (the entry point)
-$mainScript = "Encryptable.py"
+$mainScript = "encryptable.py"
+
+# Encrypt the config file before packaging
+& python C:\EncryptableConfig\encrypt_config.py
 
 # Run PyInstaller to generate the executable
-& pyinstaller --onefile --windowed --add-data "icons\IconOnly.png;icons/" --add-data "icons\hide_password_icon.png;icons/" --add-data "icons\show_password_icon.png;icons/" --add-data "accounts_database.db;." $mainScript
+& pyinstaller --onefile --windowed --add-data "resources\icons\IconOnly.png;resources/icons/" --add-data "resources\icons\hide_password_icon.png;resources/icons/" --add-data "resources\icons\show_password_icon.png;resources/icons/" --add-data "resources\accounts_database.db;." $mainScript
 
 # Check if the zip file already exists and remove it
 if (Test-Path $zipFileName) {
@@ -18,9 +21,8 @@ if (Test-Path $zipFileName) {
 # Paths to the files and folders you want to zip up
 $itemsToZip = @(
     ".\dist\Encryptable.exe",  # Assuming your executable name is Encryptable.exe
-    ".\icons",
-    ".\accounts_database.db"
-    ".\README.md"
+    ".\resources",
+    ".\README.md",
     ".\Privacy Policy.md"
 )
 
