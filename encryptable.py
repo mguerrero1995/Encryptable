@@ -46,12 +46,16 @@ config_data = load_config(config_file, ek)
 # Pull out individual configs
 APP_NAME = config_data["application"]["name"]
 APP_LOGO = config_data["resources"]["app_logo"]
-APP_VERSION = config_data["application"]["version"]
+APP_VERSION = config_data["application"]["version"] # Version from config file in '#.#.#' format
+APP_VERSION_MAJOR = int(APP_VERSION[0]) # First number (int)
+APP_VERSION_MINOR = int(APP_VERSION[2]) # Second number (int)
+APP_VERSION_PATCH = int(APP_VERSION[-1]) # Third (last) number (int)
 
 GC_CLIENT_ID = config_data["google_cloud_api"]["client_id"]
 
 SIGNATURE = b'ENCRYPTABLE_APP'  # Your unique file signature, converted to bytes
-HEADER_ADDITIONAL_LENGTH = 5  # The length of the additional header information, in bytes
+HEADER_ADDITIONAL_LENGTH = 5
+  # The length of the additional header information, in bytes
 
 # File path configurations for the app
 SHOW_PW_ICON = config_data["resources"]["show_password_icon"]
@@ -82,7 +86,7 @@ def encrypt_file(file_path, password, user_id):
         
         # Adding a known signature at the start of the file
         signature = SIGNATURE
-        version = APP_VERSION
+        version = 0
         timestamp = int(time.time())
         header = signature + struct.pack('B', version) + struct.pack('I', timestamp)
         plaintext = header + plaintext
@@ -96,7 +100,7 @@ def encrypt_file(file_path, password, user_id):
         # Write the encryption metadata to the database if a user is logged in
         if user_id:
             try:
-                with sqlite3.connect("./resources/accounts_database.db") as conn:
+                with sqlite3.connect("accounts_database.db") as conn:
                     cur = conn.cursor()
                     cur.execute("INSERT INTO encrypted_files (user_id, file_name, encryption_signature, encrypted_date) "
                                 "VALUES (?, ?, ?, ?)", 
@@ -143,7 +147,7 @@ def decrypt_file(file_path, password, user_id):
         # Delete the encryption metadata from the database if a user is logged in
         if user_id:
             try:
-                with sqlite3.connect("./resources/accounts_database.db") as conn:
+                with sqlite3.connect("accounts_database.db") as conn:
                     cur = conn.cursor()
                     cur.execute("DELETE FROM encrypted_files WHERE user_id = ? AND file_name = ?", 
                                 (user_id, os.path.basename(file_path)))
@@ -705,19 +709,19 @@ class App(QMainWindow):
         self.manage_account_action = QAction("Manage Accounts", self)
         self.manage_account_action.setEnabled(False) # Disabled by default unless there is a user logged in
         self.sign_in_action = QAction("Sign In", self)
-        self.print_user_action = QAction("Print User", self)
+        # self.print_user_action = QAction("Print User", self)
 
         # Connect actions to the methods
         self.create_account_action.triggered.connect(self.create_account)
         self.manage_account_action.triggered.connect(self.manage_account)
         self.sign_in_action.triggered.connect(self.sign_in)
-        self.print_user_action.triggered.connect(self.print_user)
+        # self.print_user_action.triggered.connect(self.print_user)
 
         # Add actions to the 'Account' menu
         self.account_menu.addAction(self.create_account_action)
         self.account_menu.addAction(self.manage_account_action)
         self.account_menu.addAction(self.sign_in_action)
-        self.account_menu.addAction(self.print_user_action)
+        # self.account_menu.addAction(self.print_user_action)
 
         # Add 'Account' menu to the menu bar
         self.menu_bar.addMenu(self.account_menu)
@@ -746,10 +750,10 @@ class App(QMainWindow):
         sign_in = SignInDialog(self, self)
         sign_in.show()
 
-    def print_user(self):
-        show_message("Current User", f"Current user is {self.current_user_id}.")
-        print(self.title, self.current_user_email, self.current_user_password_hash)
-        return
+    # def print_user(self):
+    #     show_message("Current User", f"Current user is {self.current_user_id}.")
+    #     print(self.title, self.current_user_email, self.current_user_password_hash)
+    #     return
 
 
 if __name__ == "__main__":
