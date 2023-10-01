@@ -46,6 +46,7 @@ config_data = load_config(config_file, ek)
 # Pull out individual configs
 APP_NAME = config_data["application"]["name"]
 APP_LOGO = config_data["resources"]["app_logo"]
+APP_VERSION = config_data["application"]["version"]
 
 GC_CLIENT_ID = config_data["google_cloud_api"]["client_id"]
 
@@ -81,7 +82,7 @@ def encrypt_file(file_path, password, user_id):
         
         # Adding a known signature at the start of the file
         signature = SIGNATURE
-        version = 1
+        version = APP_VERSION
         timestamp = int(time.time())
         header = signature + struct.pack('B', version) + struct.pack('I', timestamp)
         plaintext = header + plaintext
