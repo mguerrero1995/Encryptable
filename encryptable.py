@@ -71,6 +71,97 @@ def key_from_password(password, salt):
         backend=default_backend()
     )
     return kdf.derive(password.encode())
+'''
+# Encrypt the file
+def encrypt_file(file_path, password, user_id):
+    try:
+        salt = os.urandom(16)
+        key = key_from_password(password, salt)
+        iv = os.urandom(16)
+        cipher = Cipher(algorithms.AES(key), modes.CFB(iv), backend=default_backend())
+        encryptor = cipher.encryptor()
+        
+        with open(file_path, "rb") as f:
+            plaintext = f.read()
+        
+        # Adding a known signature at the start of the file
+        signature = SIGNATURE
+        timestamp = int(time.time())
+        header = signature + struct.pack('BBB', APP_VERSION_MAJOR, APP_VERSION_MINOR, APP_VERSION_PATCH) + struct.pack('I', timestamp)
+        plaintext = header + plaintext
+        # print(f"Signature Length: {len(signature)}") # debug
+        # print(f"Version Length: {len(struct.pack('BBB', APP_VERSION_MAJOR, APP_VERSION_MINOR, APP_VERSION_PATCH))}") # debug
+        # print(f"Timestamp Length: {len(struct.pack('I', timestamp))}") # debug
+        # print(f"Total Header Length: {len(header)}") # debug
+
+        ciphertext = encryptor.update(plaintext) + encryptor.finalize()
+        
+        encrypted_file_path = file_path + ".cyph"
+        with open(encrypted_file_path, "wb") as f:
+            f.write(salt + iv + ciphertext)
+        
+        # Write the encryption metadata to the database if a user is logged in
+        if user_id:
+            try:
+                with sqlite3.connect("./resources/accounts_database.db") as conn:
+                    cur = conn.cursor()
+                    cur.execute("INSERT INTO encrypted_files (user_id, file_name, encryption_signature, encrypted_date) "
+                                "VALUES (?, ?, ?, ?)", 
+                                (user_id, os.path.basename(encrypted_file_path), header, datetime.datetime.now()))
+            except Exception as e:
+                show_message("Error", str(e))
+    except Exception as e:
+        show_message("Error", str(e))
+
+# Decrypt the file
+def decrypt_file(file_path, password, user_id):
+    # try:
+    with open(file_path, "rb") as f:
+        salt = f.read(16)
+        iv = f.read(16)
+        ciphertext = f.read()
+
+    key = key_from_password(password, salt)
+    cipher = Cipher(algorithms.AES(key), modes.CFB(iv), backend=default_backend())
+    decryptor = cipher.decryptor()
+    plaintext = decryptor.update(ciphertext) + decryptor.finalize()
+    
+    signature = SIGNATURE
+
+    # Step 2: Separating the header from the content
+    header_len = len(signature) + HEADER_ADDITIONAL_LENGTH # 3 bytes for the version and 4 bytes for the timestamp
+
+    # print(f"Expected Header Length from File: {len(plaintext[:header_len])}") # debug
+
+    signature_in_file, major, minor, patch, timestamp = struct.unpack(f'15sBBBI', plaintext[:header_len])
+
+    # Step 3: Verifying the header
+    if signature_in_file != signature:
+        raise ValueError("Incorrect password or file not encrypted by this application.")
+
+    # print(f"Header Content: {plaintext[:header_len]}") # debug
+    plaintext = plaintext[header_len:]
+
+    # Remove custom extension to restore original file extension
+    decrypted_file_path = file_path.rstrip(".cyph")
+
+    with open(decrypted_file_path, "wb") as f:
+        f.write(plaintext)
+
+    # Delete the encryption metadata from the database if a user is logged in
+    if user_id:
+        try:
+            with sqlite3.connect("./resources/accounts_database.db") as conn:
+                cur = conn.cursor()
+                cur.execute("DELETE FROM encrypted_files WHERE user_id = ? AND file_name = ?", 
+                            (user_id, os.path.basename(file_path)))
+        except Exception as e:
+            show_message("Error", str(e))
+    # except:
+    #     signature_in_file, major, minor, patch, timestamp = struct.unpack(f'15sBBBI', plaintext[:header_len])
+    #     print(signature_in_file)
+    #     raise ValueError(f"Decryption failed for {file_path} due to an incorrect password.")
+ '''
 
 # Encrypt the file
 def encrypt_file(file_path, password, user_id):
@@ -622,6 +713,8 @@ class EncyrptionUI(QWidget):
                     show_message("Error", f"{fl} is already encrypted. Please ensure that all selected files are unencrypted.")
                     return
         
+        password = None  # Initialize the password variable
+
         password_dialog = PasswordDialog("Encrypt", self)
         result = password_dialog.exec()
         if result == QDialog.DialogCode.Accepted:
@@ -654,7 +747,9 @@ class EncyrptionUI(QWidget):
                     show_message("Error", f"{fl} is not encrypted or was not encrypted by this application.\n" 
                                     "\nPlease provide files with a `.cyph` extension.")
                     return
-        
+                
+        password = None  # Initialize the password variable
+
         password_dialog = PasswordDialog("Decrypt", self)
         result = password_dialog.exec()
         if result == QDialog.DialogCode.Accepted:
