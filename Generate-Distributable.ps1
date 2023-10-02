@@ -2,14 +2,14 @@
 $ErrorActionPreference = 'Stop'
 
 # Read the version from the config.json
-$configContent = Get-Content -Path "C:\EncryptableConfig\config.json" | ConvertFrom-Json
-$version = $configContent.application.version
+# $configContent = Get-Content -Path "C:\EncryptableConfig\config.json" | ConvertFrom-Json
+# $version = $configContent.application.version
 
 # Name of the output zip file
-$zipFileName = "Encryptable_Download_v$version.zip"
+$zipFileName = "Encryptable_Download.zip"
 
 # Name of your main Python script (the entry point)
-$mainScript = "encryptable.py"
+$mainScript = "Encryptable.py"
 
 # Encrypt the config file before packaging
 & python C:\EncryptableConfig\encrypt_config.py

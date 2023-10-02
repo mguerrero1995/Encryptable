@@ -9,11 +9,17 @@ import sys
 import time
 
 import bcrypt
+import gspread
 from cryptography.fernet import Fernet
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from google.oauth2.credentials import Credentials
+from oauth2client.client import GoogleCredentials
+from googleapiclient import discovery
+from googleapiclient import errors
+from oauth2client.service_account import ServiceAccountCredentials
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QAction, QIcon, QPixmap
 from PyQt6.QtWidgets import (QApplication, QCheckBox, QDialog, QFileDialog,
@@ -54,8 +60,7 @@ APP_VERSION_PATCH = int(APP_VERSION[-1]) # Third (last) number (int)
 GC_CLIENT_ID = config_data["google_cloud_api"]["client_id"]
 
 SIGNATURE = b'ENCRYPTABLE_APP'  # Your unique file signature, converted to bytes
-HEADER_ADDITIONAL_LENGTH = 5
-  # The length of the additional header information, in bytes
+HEADER_ADDITIONAL_LENGTH = 5 # The length of the additional header information, in bytes
 
 # File path configurations for the app
 SHOW_PW_ICON = config_data["resources"]["show_password_icon"]
@@ -326,6 +331,8 @@ class PasswordDialog(QDialog):
 class CreateAccountDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.config_data = config_data
+        self.email_spreadsheet_id = "1z5CeB_HSSh-zkib5yOUKrIEHcyocPqdr-s0W2ZWEV70"
 
         self.setWindowTitle("Create New Account")
 
@@ -355,10 +362,51 @@ class CreateAccountDialog(QDialog):
 
         self.setLayout(self.layout)
 
+    def get_google_credentials(self):
+            # Using the decrypted config data to form the credentials
+            creds = Credentials.from_authorized_user_info(self.config_data["google_cloud_api"])
+            return creds
+    
+    def is_email_registered(self, email):
+        """
+        Check if the email is already registered in the Google Sheet.
+        """
+        creds = self.get_google_credentials()
+        service = discovery.build("sheets", "v4", credentials=creds)
+
+        # Assuming you have only one sheet and you're checking the entire column A for emails
+        result = service.spreadsheets().values().get(
+            spreadsheetId=self.email_spreadsheet_id, range="A:B").execute()
+        values = result.get("values", [])
+
+        # Flatten the list and check if email exists
+        flat_list = [item for sublist in values for item in sublist]
+        return email in flat_list
+
+    def register_email(self, email):
+        """
+        Register the email in the Google Sheet.
+        """
+        creds = self.get_google_credentials()
+        service = discovery.build("sheets", "v4", credentials=creds)
+
+        # Assuming you're appending to column A
+        values = [[email]]
+        body = {"values": values}
+        result = service.spreadsheets().values().append(
+            spreadsheetId=self.email_spreadsheet_id, range="A:B",
+            valueInputOption="RAW", body=body).execute()
+        
+        return result
+
     def create_account_clicked(self):
         email = self.email_input.text()
         password = self.password_input.text()
         confirm_password = self.confirm_password_input.text()
+
+        if self.is_email_registered(email):
+            show_message("Error", "This email is already in use.")
+            return
 
         if not is_valid_email(email):
             show_message("Error", "Invalid email address. Please enter a valid email.")
@@ -382,6 +430,9 @@ class CreateAccountDialog(QDialog):
                 cur.execute("INSERT INTO users (email, user_password_hash) VALUES (?, ?);", 
                             (email, user_password_hash))
 
+            # Register the email in the Google Sheet
+            self.register_email(email)
+
             self.email_input.clear()
             self.password_input.clear()
             self.confirm_password_input.clear()
@@ -389,6 +440,7 @@ class CreateAccountDialog(QDialog):
             self.close()
         except Exception as e:
             show_message("Error", str(e))
+        
 
 
 class ManageAccountDialog(QDialog):
