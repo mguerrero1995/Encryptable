@@ -4,17 +4,17 @@
 
 **Owner/Developer:** Manny Guerrero  
 **Website:** https://brand.page/Encryptable
-**Email:** encryptableservice@gmail.com
+**Email:** EncryptableService@gmail.com
 **Owner's Professional LinkedIn:** https://www.linkedin.com/in/manny-g-933970263/
 **Date:** September 28, 2023  
-**Version:** 0.2.0
-**Status:** Alpha / Development Stage
+**Version:** 0.2.1
+**Status:** Beta / Testing Stage
 
 ---
 
 ## ⚠️ Warning
 
-This application is currently in its alpha/development stage. While we strive to develop a robust and secure file encryption tool, the application may contain bugs that could potentially lead to loss of data. 
+This application is currently in its beta/testing stage. While we strive to develop a robust and secure file encryption tool, the application may contain bugs that could potentially lead to loss of data. 
 
 **Users are solely responsible for any files that become irrecoverable due to use or misuse of Encryptable. It is highly recommended to exercise caution when using the application in its current state, including maintaining backups of all files to be encrypted or decrypted.**
 
@@ -22,7 +22,7 @@ We appreciate your understanding and welcome feedback and reports of any issues 
 
 ---
 
-## What's New in Version 0.2.0
+## What's New in Version 0.2.1
 
 **New Features:**
 - **User Account Support:** Added a backend SQLite database to support the use of user accounts. 
@@ -30,6 +30,9 @@ We appreciate your understanding and welcome feedback and reports of any issues 
   - *Logged In State Tracking:* Application can now track if and which user is currently logged in.
   - *Change Password:* Users can now change their passwords at any time through the 'Manage Acount' toolbar item.
   - *File Metadata Storage:* When a logged in user encrypts a file, the encryption data for that file is stored securely as hashed data in the encrypted_files table. Similarly, when a file is decrypted by a logged in user, the entry for that file is deleted from the encrypted_files table.
+
+**Bug Fixes:**
+- A bug was fixed where the application crashed whenever the "Enter Password" dialog was closed using the close button.
 
 ---
 
@@ -49,7 +52,7 @@ Encryptable is an open-source, free-to-use desktop application designed to offer
 
 1. **Download:** Download the `Encryptable_Download.zip` folder.
 2. **Extract Files:** Extract the files to the location that you would like to run the program from (ex: C:\Users\UserName\Desktop).
-3. **Open the Application:**  Run `Encryptable.exe`. To ensure proper functioning of the program, please keep/run the executable in the same folder as the files that it was downloaded with.
+3. **Open the Application:** Run `Encryptable.exe`. To ensure proper functioning of the program, please keep/run the executable in the same folder as the files that it was downloaded with.
 4. **Adding Files:**
     - **Browse:** Use the 'Browse' button to select files from your file system.
     - **Drag and Drop:** Simply drag and drop the files into the designated area in the application.
@@ -61,11 +64,25 @@ Encryptable is an open-source, free-to-use desktop application designed to offer
 
 ---
 
+**Note on Windows Defender:** Due to the nature of this application involving encryption libraries, some users have reported that Windows flags Encryptable as a potential virus/malware. We assure you that Encryptable does not contain any malware. If you face this issue, you can exclude the directory you extract the files to from Windows Defender scans. Here's how:
+
+1. Open the **Windows Security** app by clicking on the shield icon in the taskbar or searching for it in the start menu.
+2. Go to **Virus & threat protection**.
+3. Under "Virus & threat protection settings", click on **Manage settings**.
+4. Scroll down and click on **Add or remove exclusions** under the "Exclusions" section.
+5. Click on **Add an exclusion** and select **Folder**.
+6. Browse to and select the directory where you extracted the Encryptable files.
+
+By following these steps, Windows Defender will not scan the specified directory, and you can run Encryptable without any issues.
+
+---
 ## Future Features
 
 We aim to continually evolve Encryptable to meet user demands and enhance functionality. Here are some prospective features we are considering for future versions:
 
 - **Multiple Account Support:** Introduce an account system to facilitate batch encryption/decryption processes through a single login password, negating the need to enter a password for each batch. Initially, this feature will be local only.
+- **Directorly/Folder Level Batch Encryption:** Encrypt entire directories and/or subdirectories as a batch.
+- **Advanced Configurations:** Allow users to set advanced configurations when encrypting/decrypting, such as only encrypting specific file types or skipping certain file types, multiple iteration encryption, etc..
 - **Cloud Support:** Extend the functionality to support cloud services, enabling users to encrypt/decrypt files across different devices and integrate with popular cloud storage solutions like Dropbox and Google Drive.
 - **Modernized GUI:** Update and modernize the appearance of the interface to improve the user experience.
 - **Optional Write Destination:** Allow users to choose a specific destination where the encrypted/decrypted files will be saved.
