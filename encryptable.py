@@ -1,4 +1,5 @@
 import datetime
+import json
 import os
 import random
 import re
@@ -8,28 +9,57 @@ import sys
 import time
 
 import bcrypt
+from cryptography.fernet import Fernet
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QAction, QIcon, QPixmap
-from PyQt6.QtWidgets import (QApplication, QDialog, QFileDialog, QFormLayout,
-                             QFrame, QHBoxLayout, QLabel, QLineEdit, QCheckBox,
-                             QMainWindow, QMenu, QMessageBox, QPushButton,
-                             QVBoxLayout, QWidget)
+from PyQt6.QtWidgets import (QApplication, QCheckBox, QDialog, QFileDialog,
+                             QFormLayout, QFrame, QHBoxLayout, QLabel,
+                             QLineEdit, QMainWindow, QMenu, QMessageBox,
+                             QPushButton, QVBoxLayout, QWidget)
+
+
+def load_config(config_path, encryption_key):
+    try:
+        with open(config_path, 'rb') as f:
+            encrypted_data = f.read()
+
+        cipher_suite = Fernet(encryption_key)
+        decrypted_data = cipher_suite.decrypt(encrypted_data)
+
+        decrypted_str = decrypted_data.decode('utf-8')
+
+        return json.loads(decrypted_str)
+    except:
+        raise ValueError("Config file failed to load.")
 
 # Configurations for app
-APP_NAME = "Encryptable (Alpha)"
-APP_LOGO = "./icons/IconOnly.png"
+config_file = "./resources/config.json"
+ek = b'5sE83ehZ3E6GgIYx1DkzKbZWiOWhAv3R0YumjC1iHkM='
+
+# Load and decrypt the config
+config_data = load_config(config_file, ek)
+
+# Pull out individual configs
+APP_NAME = config_data["application"]["name"]
+APP_LOGO = config_data["resources"]["app_logo"]
+APP_VERSION = config_data["application"]["version"] # Version from config file in '#.#.#' format
+APP_VERSION_MAJOR = int(APP_VERSION[0]) # First number (int)
+APP_VERSION_MINOR = int(APP_VERSION[2]) # Second number (int)
+APP_VERSION_PATCH = int(APP_VERSION[-1]) # Third (last) number (int)
+
+GC_CLIENT_ID = config_data["google_cloud_api"]["client_id"]
 
 SIGNATURE = b'ENCRYPTABLE_APP'  # Your unique file signature, converted to bytes
-HEADER_ADDITIONAL_LENGTH = 5  # The length of the additional header information, in bytes
+HEADER_ADDITIONAL_LENGTH = 5
+  # The length of the additional header information, in bytes
 
 # File path configurations for the app
-SHOW_PW_ICON = "./icons/show_password_icon.png"
-HIDE_PW_ICON = "./icons/hide_password_icon.png"
-
+SHOW_PW_ICON = config_data["resources"]["show_password_icon"]
+HIDE_PW_ICON = config_data["resources"]["hide_password_icon"]
 
 # Generate a key from the password
 def key_from_password(password, salt):
@@ -41,6 +71,97 @@ def key_from_password(password, salt):
         backend=default_backend()
     )
     return kdf.derive(password.encode())
+'''
+# Encrypt the file
+def encrypt_file(file_path, password, user_id):
+    try:
+        salt = os.urandom(16)
+        key = key_from_password(password, salt)
+        iv = os.urandom(16)
+        cipher = Cipher(algorithms.AES(key), modes.CFB(iv), backend=default_backend())
+        encryptor = cipher.encryptor()
+        
+        with open(file_path, "rb") as f:
+            plaintext = f.read()
+        
+        # Adding a known signature at the start of the file
+        signature = SIGNATURE
+        timestamp = int(time.time())
+        header = signature + struct.pack('BBB', APP_VERSION_MAJOR, APP_VERSION_MINOR, APP_VERSION_PATCH) + struct.pack('I', timestamp)
+        plaintext = header + plaintext
+        # print(f"Signature Length: {len(signature)}") # debug
+        # print(f"Version Length: {len(struct.pack('BBB', APP_VERSION_MAJOR, APP_VERSION_MINOR, APP_VERSION_PATCH))}") # debug
+        # print(f"Timestamp Length: {len(struct.pack('I', timestamp))}") # debug
+        # print(f"Total Header Length: {len(header)}") # debug
+
+        ciphertext = encryptor.update(plaintext) + encryptor.finalize()
+        
+        encrypted_file_path = file_path + ".cyph"
+        with open(encrypted_file_path, "wb") as f:
+            f.write(salt + iv + ciphertext)
+        
+        # Write the encryption metadata to the database if a user is logged in
+        if user_id:
+            try:
+                with sqlite3.connect("./resources/accounts_database.db") as conn:
+                    cur = conn.cursor()
+                    cur.execute("INSERT INTO encrypted_files (user_id, file_name, encryption_signature, encrypted_date) "
+                                "VALUES (?, ?, ?, ?)", 
+                                (user_id, os.path.basename(encrypted_file_path), header, datetime.datetime.now()))
+            except Exception as e:
+                show_message("Error", str(e))
+    except Exception as e:
+        show_message("Error", str(e))
+
+# Decrypt the file
+def decrypt_file(file_path, password, user_id):
+    # try:
+    with open(file_path, "rb") as f:
+        salt = f.read(16)
+        iv = f.read(16)
+        ciphertext = f.read()
+
+    key = key_from_password(password, salt)
+    cipher = Cipher(algorithms.AES(key), modes.CFB(iv), backend=default_backend())
+    decryptor = cipher.decryptor()
+    plaintext = decryptor.update(ciphertext) + decryptor.finalize()
+    
+    signature = SIGNATURE
+
+    # Step 2: Separating the header from the content
+    header_len = len(signature) + HEADER_ADDITIONAL_LENGTH # 3 bytes for the version and 4 bytes for the timestamp
+
+    # print(f"Expected Header Length from File: {len(plaintext[:header_len])}") # debug
+
+    signature_in_file, major, minor, patch, timestamp = struct.unpack(f'15sBBBI', plaintext[:header_len])
+
+    # Step 3: Verifying the header
+    if signature_in_file != signature:
+        raise ValueError("Incorrect password or file not encrypted by this application.")
+
+    # print(f"Header Content: {plaintext[:header_len]}") # debug
+    plaintext = plaintext[header_len:]
+
+    # Remove custom extension to restore original file extension
+    decrypted_file_path = file_path.rstrip(".cyph")
+
+    with open(decrypted_file_path, "wb") as f:
+        f.write(plaintext)
+
+    # Delete the encryption metadata from the database if a user is logged in
+    if user_id:
+        try:
+            with sqlite3.connect("./resources/accounts_database.db") as conn:
+                cur = conn.cursor()
+                cur.execute("DELETE FROM encrypted_files WHERE user_id = ? AND file_name = ?", 
+                            (user_id, os.path.basename(file_path)))
+        except Exception as e:
+            show_message("Error", str(e))
+    # except:
+    #     signature_in_file, major, minor, patch, timestamp = struct.unpack(f'15sBBBI', plaintext[:header_len])
+    #     print(signature_in_file)
+    #     raise ValueError(f"Decryption failed for {file_path} due to an incorrect password.")
+ '''
 
 # Encrypt the file
 def encrypt_file(file_path, password, user_id):
@@ -56,7 +177,7 @@ def encrypt_file(file_path, password, user_id):
         
         # Adding a known signature at the start of the file
         signature = SIGNATURE
-        version = 1
+        version = 0
         timestamp = int(time.time())
         header = signature + struct.pack('B', version) + struct.pack('I', timestamp)
         plaintext = header + plaintext
@@ -254,7 +375,7 @@ class CreateAccountDialog(QDialog):
 
         try:
             # Connect to database
-            with sqlite3.connect("accounts_database.db") as conn:
+            with sqlite3.connect("./resources/accounts_database.db") as conn:
                 cur = conn.cursor()
 
                 # Insert a new record into the users table with the email and password
@@ -358,7 +479,7 @@ class EditUserPassword(QDialog):
 
         try:
             # Connect to database
-            with sqlite3.connect("accounts_database.db") as conn:
+            with sqlite3.connect("./resources/accounts_database.db") as conn:
                 cur = conn.cursor()
 
                 # Get password hash and salt for the provided email 
@@ -406,7 +527,7 @@ class SignInDialog(QDialog):
 
         try:
             # Connect to database
-            with sqlite3.connect("accounts_database.db") as conn:
+            with sqlite3.connect("./resources/accounts_database.db") as conn:
                 cur = conn.cursor()
 
                 # Get password hash and salt for the provided email 
@@ -592,6 +713,8 @@ class EncyrptionUI(QWidget):
                     show_message("Error", f"{fl} is already encrypted. Please ensure that all selected files are unencrypted.")
                     return
         
+        password = None  # Initialize the password variable
+
         password_dialog = PasswordDialog("Encrypt", self)
         result = password_dialog.exec()
         if result == QDialog.DialogCode.Accepted:
@@ -624,7 +747,9 @@ class EncyrptionUI(QWidget):
                     show_message("Error", f"{fl} is not encrypted or was not encrypted by this application.\n" 
                                     "\nPlease provide files with a `.cyph` extension.")
                     return
-        
+                
+        password = None  # Initialize the password variable
+
         password_dialog = PasswordDialog("Decrypt", self)
         result = password_dialog.exec()
         if result == QDialog.DialogCode.Accepted:
@@ -679,19 +804,19 @@ class App(QMainWindow):
         self.manage_account_action = QAction("Manage Accounts", self)
         self.manage_account_action.setEnabled(False) # Disabled by default unless there is a user logged in
         self.sign_in_action = QAction("Sign In", self)
-        self.print_user_action = QAction("Print User", self)
+        # self.print_user_action = QAction("Print User", self)
 
         # Connect actions to the methods
         self.create_account_action.triggered.connect(self.create_account)
         self.manage_account_action.triggered.connect(self.manage_account)
         self.sign_in_action.triggered.connect(self.sign_in)
-        self.print_user_action.triggered.connect(self.print_user)
+        # self.print_user_action.triggered.connect(self.print_user)
 
         # Add actions to the 'Account' menu
         self.account_menu.addAction(self.create_account_action)
         self.account_menu.addAction(self.manage_account_action)
         self.account_menu.addAction(self.sign_in_action)
-        self.account_menu.addAction(self.print_user_action)
+        # self.account_menu.addAction(self.print_user_action)
 
         # Add 'Account' menu to the menu bar
         self.menu_bar.addMenu(self.account_menu)
@@ -720,10 +845,10 @@ class App(QMainWindow):
         sign_in = SignInDialog(self, self)
         sign_in.show()
 
-    def print_user(self):
-        show_message("Current User", f"Current user is {self.current_user_id}.")
-        print(self.title, self.current_user_email, self.current_user_password_hash)
-        return
+    # def print_user(self):
+    #     show_message("Current User", f"Current user is {self.current_user_id}.")
+    #     print(self.title, self.current_user_email, self.current_user_password_hash)
+    #     return
 
 
 if __name__ == "__main__":
