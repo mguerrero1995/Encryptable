@@ -4,7 +4,8 @@
 
 **Owner/Developer:** Manny Guerrero  
 **Website:** https://brand.page/Encryptable
-**Email:** EncryptableService@gmail.com
+**Email:** EncryptableApp@gmail.com
+**Phone:** (530) 219-2898
 **Owner's Professional LinkedIn:** https://www.linkedin.com/in/manny-g-933970263/
 **Date:** September 28, 2023  
 **Version:** 0.2.1
