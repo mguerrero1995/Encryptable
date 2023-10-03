@@ -9,7 +9,7 @@ $ErrorActionPreference = 'Stop'
 $zipFileName = "Encryptable_Download.zip"
 
 # Name of your main Python script (the entry point)
-$mainScript = "Encryptable.py"
+$mainScript = "encryptable.py"
 
 # Encrypt the config file before packaging
 & python C:\EncryptableConfig\encrypt_config.py

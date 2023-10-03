@@ -1,25 +1,21 @@
+import base64
 import datetime
 import json
 import os
-import random
 import re
 import sqlite3
 import struct
 import sys
 import time
-import base64
+
 import bcrypt
-import gspread
 from cryptography.fernet import Fernet
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from google.oauth2.credentials import Credentials
-from oauth2client.client import GoogleCredentials
 from googleapiclient import discovery
-from googleapiclient import errors
-from oauth2client.service_account import ServiceAccountCredentials
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QAction, QIcon, QPixmap
 from PyQt6.QtWidgets import (QApplication, QCheckBox, QDialog, QFileDialog,
@@ -78,100 +74,12 @@ def key_from_password(password, salt):
         backend=default_backend()
     )
     return kdf.derive(password.encode())
-'''
+
 # Encrypt the file
 def encrypt_file(file_path, password, user_id):
-    try:
-        salt = os.urandom(16)
-        key = key_from_password(password, salt)
-        iv = os.urandom(16)
-        cipher = Cipher(algorithms.AES(key), modes.CFB(iv), backend=default_backend())
-        encryptor = cipher.encryptor()
-        
-        with open(file_path, "rb") as f:
-            plaintext = f.read()
-        
-        # Adding a known signature at the start of the file
-        signature = SIGNATURE
-        timestamp = int(time.time())
-        header = signature + struct.pack('BBB', APP_VERSION_MAJOR, APP_VERSION_MINOR, APP_VERSION_PATCH) + struct.pack('I', timestamp)
-        plaintext = header + plaintext
-        # print(f"Signature Length: {len(signature)}") # debug
-        # print(f"Version Length: {len(struct.pack('BBB', APP_VERSION_MAJOR, APP_VERSION_MINOR, APP_VERSION_PATCH))}") # debug
-        # print(f"Timestamp Length: {len(struct.pack('I', timestamp))}") # debug
-        # print(f"Total Header Length: {len(header)}") # debug
-
-        ciphertext = encryptor.update(plaintext) + encryptor.finalize()
-        
-        encrypted_file_path = file_path + ".cyph"
-        with open(encrypted_file_path, "wb") as f:
-            f.write(salt + iv + ciphertext)
-        
-        # Write the encryption metadata to the database if a user is logged in
-        if user_id:
-            try:
-                with sqlite3.connect(LOCAL_DB_CONN) as conn:
-                    cur = conn.cursor()
-                    cur.execute("INSERT INTO encrypted_files (user_id, file_name, encryption_signature, encrypted_date) "
-                                "VALUES (?, ?, ?, ?)", 
-                                (user_id, os.path.basename(encrypted_file_path), header, datetime.datetime.now()))
-            except Exception as e:
-                show_message("Error", str(e))
-    except Exception as e:
-        show_message("Error", str(e))
-
-# Decrypt the file
-def decrypt_file(file_path, password, user_id):
-    # try:
-    with open(file_path, "rb") as f:
-        salt = f.read(16)
-        iv = f.read(16)
-        ciphertext = f.read()
-
-    key = key_from_password(password, salt)
-    cipher = Cipher(algorithms.AES(key), modes.CFB(iv), backend=default_backend())
-    decryptor = cipher.decryptor()
-    plaintext = decryptor.update(ciphertext) + decryptor.finalize()
+    if os.path.splitext(file_path)[1] == ".cyph": # Check if the file is already encrypted (i.e has custom ".cyph" extension)
+        raise ValueError(f"Error: {os.path.normpath(file_path)} is already encrypted. Please ensure that all selected files are unencrypted.")
     
-    signature = SIGNATURE
-
-    # Step 2: Separating the header from the content
-    header_len = len(signature) + HEADER_ADDITIONAL_LENGTH # 3 bytes for the version and 4 bytes for the timestamp
-
-    # print(f"Expected Header Length from File: {len(plaintext[:header_len])}") # debug
-
-    signature_in_file, major, minor, patch, timestamp = struct.unpack(f'15sBBBI', plaintext[:header_len])
-
-    # Step 3: Verifying the header
-    if signature_in_file != signature:
-        raise ValueError("Incorrect password or file not encrypted by this application.")
-
-    # print(f"Header Content: {plaintext[:header_len]}") # debug
-    plaintext = plaintext[header_len:]
-
-    # Remove custom extension to restore original file extension
-    decrypted_file_path = file_path.rstrip(".cyph")
-
-    with open(decrypted_file_path, "wb") as f:
-        f.write(plaintext)
-
-    # Delete the encryption metadata from the database if a user is logged in
-    if user_id:
-        try:
-            with sqlite3.connect(LOCAL_DB_CONN) as conn:
-                cur = conn.cursor()
-                cur.execute("DELETE FROM encrypted_files WHERE user_id = ? AND file_name = ?", 
-                            (user_id, os.path.basename(file_path)))
-        except Exception as e:
-            show_message("Error", str(e))
-    # except:
-    #     signature_in_file, major, minor, patch, timestamp = struct.unpack(f'15sBBBI', plaintext[:header_len])
-    #     print(signature_in_file)
-    #     raise ValueError(f"Decryption failed for {file_path} due to an incorrect password.")
- '''
-
-# Encrypt the file
-def encrypt_file(file_path, password, user_id):
     try:
         salt = os.urandom(16)
         key = key_from_password(password, salt)
@@ -198,7 +106,7 @@ def encrypt_file(file_path, password, user_id):
         # Write the encryption metadata to the database if a user is logged in
         if user_id:
             try:
-                with sqlite3.connect("accounts_database.db") as conn:
+                with sqlite3.connect(LOCAL_DB_CONN) as conn:
                     cur = conn.cursor()
                     cur.execute("INSERT INTO encrypted_files (user_id, file_name, encryption_signature, encrypted_date) "
                                 "VALUES (?, ?, ?, ?)", 
@@ -210,6 +118,11 @@ def encrypt_file(file_path, password, user_id):
 
 # Decrypt the file
 def decrypt_file(file_path, password, user_id):
+    print(os.path.splitext(file_path)[1], os.path.splitext(file_path)[1], os.path.splitext(file_path)[1] != ".cyph")
+    if os.path.splitext(file_path)[1] != ".cyph":
+        raise ValueError(f"Error: {os.path.normpath(file_path)} is not encrypted or was not encrypted by this application.\n" 
+                        "\nPlease provide files with a `.cyph` extension.")
+                
     try:
         with open(file_path, "rb") as f:
             salt = f.read(16)
@@ -245,7 +158,7 @@ def decrypt_file(file_path, password, user_id):
         # Delete the encryption metadata from the database if a user is logged in
         if user_id:
             try:
-                with sqlite3.connect("accounts_database.db") as conn:
+                with sqlite3.connect(LOCAL_DB_CONN) as conn:
                     cur = conn.cursor()
                     cur.execute("DELETE FROM encrypted_files WHERE user_id = ? AND file_name = ?", 
                                 (user_id, os.path.basename(file_path)))
@@ -470,7 +383,6 @@ class CreateAccountDialog(QDialog):
             show_message("Error", str(e))
         
 
-
 class ManageAccountDialog(QDialog):
     def __init__(self, parent, app_instance):
         super().__init__(parent)
@@ -497,6 +409,7 @@ class ManageAccountDialog(QDialog):
     def edit_user_password_clicked(self):
         edit_user_password = EditUserPassword(self, self.app_instance)
         edit_user_password.show()
+
 
 class EditUserPassword(QDialog):
     def __init__(self, parent, app_instance):
@@ -572,6 +485,7 @@ class EditUserPassword(QDialog):
             self.close()
         except Exception as e:
             show_message("Error", str(e))
+
 
 class SignInDialog(QDialog):
     def __init__(self, parent, app_instance):
@@ -659,7 +573,6 @@ class DropZone(QLabel):
         self.parent().file_path_input.setText(formatted_paths)  # Update the QLineEdit with the formatted file paths
 
 
-
 class EncyrptionUI(QWidget):
     def __init__(self, parent, app_instance):
         super().__init__(parent)
@@ -741,9 +654,9 @@ class EncyrptionUI(QWidget):
         self.configurations_label = QLabel("Configurations:")
         self.configurations_layout.addWidget(self.configurations_label)
         
-        self.retain_original_file = QCheckBox("Retain Original File(s)")
-        self.retain_original_file.setChecked(False)
-        self.configurations_layout.addWidget(self.retain_original_file)
+        self.retain_target_file = QCheckBox("Retain Original File(s)")
+        self.retain_target_file.setChecked(False)
+        self.configurations_layout.addWidget(self.retain_target_file)
 
         self.configurations_layout.addStretch()
 
@@ -782,16 +695,11 @@ class EncyrptionUI(QWidget):
     def encrypt_clicked(self):
         file_path = self.file_path_input.text()
         fls = self.extract_file_paths(file_path) # Use extract_file_paths method in case there are multiple files selected
-        retain_original = self.retain_original_file.isChecked()
+        retain_target_file = self.retain_target_file.isChecked()
 
         if not fls:
-            show_message("Error", "Please enter a file path.")
+            show_message("Error", "Please enter a valid file path.")
             return
-        else:
-            for fl in fls:
-                if os.path.splitext(fl)[1] == ".cyph": # Check if the file is already encrypted (i.e has custom ".cyph" extension)
-                    show_message("Error", f"{fl} is already encrypted. Please ensure that all selected files are unencrypted.")
-                    return
         
         password = None  # Initialize the password variable
 
@@ -804,10 +712,22 @@ class EncyrptionUI(QWidget):
             return
         
         try:
-            for fl in fls:
-                encrypt_file(fl, password, self.app_instance.current_user_id)
-                if not retain_original: # Optionally delete the encrypted file after decryption
-                    os.remove(fl)
+            for path in fls:
+                # If the path is a directory, get all the files in it (skip ".cyph" file because they are already encrypted)
+                if os.path.isdir(path):
+                    files_in_directory = [os.path.join(path, file) for file in os.listdir(path) if os.path.isfile(os.path.join(path, file)) and os.path.splitext(file)[1] != ".cyph"]
+                    if not files_in_directory:
+                        show_message("Message", f"There are no unencrypted files in `{os.path.normpath(path)}`or the folder is empty.")
+                        continue
+                    for file in files_in_directory:
+                        encrypt_file(file, password, self.app_instance.current_user_id)
+                        if not retain_target_file:
+                            os.remove(file)
+                else:
+                    encrypt_file(path, password, self.app_instance.current_user_id)
+                    if not retain_target_file:
+                        os.remove(path)
+
             show_message("Success", "All files have been successfully encrypted.")
             self.file_path_input.clear()
         except Exception as e:
@@ -816,17 +736,11 @@ class EncyrptionUI(QWidget):
     def decrypt_clicked(self):
         file_path = self.file_path_input.text()
         fls = self.extract_file_paths(file_path) 
-        retain_original = self.retain_original_file.isChecked()
+        retain_target_file = self.retain_target_file.isChecked()
 
         if not fls:
             show_message("Error", "Please enter a file path.")
             return
-        else:
-            for fl in fls: 
-                if os.path.splitext(fl)[1] != ".cyph":
-                    show_message("Error", f"{fl} is not encrypted or was not encrypted by this application.\n" 
-                                    "\nPlease provide files with a `.cyph` extension.")
-                    return
                 
         password = None  # Initialize the password variable
 
@@ -839,23 +753,26 @@ class EncyrptionUI(QWidget):
             return
         
         try:
-            for fl in fls:
-                decrypt_file(fl, password, self.app_instance.current_user_id)
-                if not retain_original: # Optionally delete the encrypted file after decryption
-                    os.remove(fl)
+            for path in fls:
+                # If the path is a directory, get all the  ".cyph" (i.e. encrypted) files in it
+                if os.path.isdir(path):
+                    files_in_directory = [os.path.join(path, file) for file in os.listdir(path) if os.path.isfile(os.path.join(path, file)) and os.path.splitext(file)[1] == ".cyph"]
+                    if not files_in_directory:
+                        show_message("Message", f"There are no encrypted files in `{os.path.normpath(path)}` or the folder is empty.")
+                        continue
+                    for file in files_in_directory:
+                        decrypt_file(file, password, self.app_instance.current_user_id)
+                        if not retain_target_file:
+                            os.remove(file)
+                else:
+                    decrypt_file(path, password, self.app_instance.current_user_id)
+                    if not retain_target_file:
+                        os.remove(path)
+
             show_message("Success", "All files have been successfully decrypted.")
             self.file_path_input.clear()
         except Exception as e:
             show_message("Error", str(e))
-
-    # Do I want to replace this logic in the encrypt/decrypt_clicked function with this method?
-    # def get_password(self, mode):  # Added "mode" parameter
-    #     password_dialog = PasswordDialog(mode, self)  # Pass the mode to the dialog
-    #     result = password_dialog.exec()
-    #     if result == QDialog.DialogCode.Accepted:
-    #         self.file_path_input.clear()
-    #         return password_dialog.get_password()
-    #     return None
 
 
 class App(QMainWindow):
