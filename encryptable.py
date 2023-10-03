@@ -118,7 +118,6 @@ def encrypt_file(file_path, password, user_id):
 
 # Decrypt the file
 def decrypt_file(file_path, password, user_id):
-    print(os.path.splitext(file_path)[1], os.path.splitext(file_path)[1], os.path.splitext(file_path)[1] != ".cyph")
     if os.path.splitext(file_path)[1] != ".cyph":
         raise ValueError(f"Error: {os.path.normpath(file_path)} is not encrypted or was not encrypted by this application.\n" 
                         "\nPlease provide files with a `.cyph` extension.")
@@ -813,7 +812,7 @@ class App(QMainWindow):
         self.account_menu.addAction(self.create_account_action)
         self.account_menu.addAction(self.manage_account_action)
         self.account_menu.addAction(self.sign_in_action)
-        self.account_menu.addAction(self.print_user_action)
+        # self.account_menu.addAction(self.print_user_action)
 
         # Add 'Account' menu to the menu bar
         self.menu_bar.addMenu(self.account_menu)
