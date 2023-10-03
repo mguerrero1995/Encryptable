@@ -7,7 +7,7 @@ import sqlite3
 import struct
 import sys
 import time
-
+import base64
 import bcrypt
 import gspread
 from cryptography.fernet import Fernet
@@ -56,6 +56,8 @@ APP_VERSION = config_data["application"]["version"] # Version from config file i
 APP_VERSION_MAJOR = int(APP_VERSION[0]) # First number (int)
 APP_VERSION_MINOR = int(APP_VERSION[2]) # Second number (int)
 APP_VERSION_PATCH = int(APP_VERSION[-1]) # Third (last) number (int)
+
+LOCAL_DB_CONN = config_data["resources"]["database_name"]
 
 GC_CLIENT_ID = config_data["google_cloud_api"]["client_id"]
 
@@ -108,7 +110,7 @@ def encrypt_file(file_path, password, user_id):
         # Write the encryption metadata to the database if a user is logged in
         if user_id:
             try:
-                with sqlite3.connect("./resources/accounts_database.db") as conn:
+                with sqlite3.connect(LOCAL_DB_CONN) as conn:
                     cur = conn.cursor()
                     cur.execute("INSERT INTO encrypted_files (user_id, file_name, encryption_signature, encrypted_date) "
                                 "VALUES (?, ?, ?, ?)", 
@@ -156,7 +158,7 @@ def decrypt_file(file_path, password, user_id):
     # Delete the encryption metadata from the database if a user is logged in
     if user_id:
         try:
-            with sqlite3.connect("./resources/accounts_database.db") as conn:
+            with sqlite3.connect(LOCAL_DB_CONN) as conn:
                 cur = conn.cursor()
                 cur.execute("DELETE FROM encrypted_files WHERE user_id = ? AND file_name = ?", 
                             (user_id, os.path.basename(file_path)))
@@ -278,6 +280,7 @@ def show_message(title, message):
     msg.setText(message)
     msg.exec()
 
+
 class PasswordDialog(QDialog):
     def __init__(self, mode, parent=None):
         super(PasswordDialog, self).__init__(parent)
@@ -332,12 +335,14 @@ class CreateAccountDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.config_data = config_data
-        self.email_spreadsheet_id = "1z5CeB_HSSh-zkib5yOUKrIEHcyocPqdr-s0W2ZWEV70"
+        self.email_spreadsheet_id = "1AH3Qt0vxfDZd_Jl-JhGEDO_8xlKGnmMjwtsRP3LNYug"
 
         self.setWindowTitle("Create New Account")
 
         self.layout = QVBoxLayout()
-
+        
+        self.internet_required_label = QLabel("Note: Internet access required\n")
+        
         self.email_label = QLabel("Email:")
         self.email_input = QLineEdit()
 
@@ -352,6 +357,7 @@ class CreateAccountDialog(QDialog):
         self.create_account_button = QPushButton("Create Account")
         self.create_account_button.clicked.connect(self.create_account_clicked)
 
+        self.layout.addWidget(self.internet_required_label)
         self.layout.addWidget(self.email_label)
         self.layout.addWidget(self.email_input)
         self.layout.addWidget(self.password_label)
@@ -367,7 +373,24 @@ class CreateAccountDialog(QDialog):
             creds = Credentials.from_authorized_user_info(self.config_data["google_cloud_api"])
             return creds
     
-    def is_email_registered(self, email):
+    def is_email_registered_local(self, email):
+        """
+        Check if the email exists in the local database.
+        """
+        try:
+            with sqlite3.connect(LOCAL_DB_CONN) as conn:
+                cur = conn.cursor()
+
+                # Insert a new record into the users table with the email and password
+                email_exists = cur.execute("SELECT 1 FROM users WHERE email = ?", (email,)).fetchone()
+        
+            return email_exists
+        except Exception as e:
+            show_message("Error", str(e))
+            return
+        
+
+    def is_email_registered_cloud(self, email):
         """
         Check if the email is already registered in the Google Sheet.
         """
@@ -376,27 +399,27 @@ class CreateAccountDialog(QDialog):
 
         # Assuming you have only one sheet and you're checking the entire column A for emails
         result = service.spreadsheets().values().get(
-            spreadsheetId=self.email_spreadsheet_id, range="A:B").execute()
+            spreadsheetId=self.email_spreadsheet_id, range="A:D").execute()
         values = result.get("values", [])
 
         # Flatten the list and check if email exists
         flat_list = [item for sublist in values for item in sublist]
         return email in flat_list
 
-    def register_email(self, email):
+    def register_email(self, email, hashed_password, registered_datetime):
         """
-        Register the email in the Google Sheet.
+        Register the email, hashed password, and is_active in the Google Sheet.
         """
         creds = self.get_google_credentials()
         service = discovery.build("sheets", "v4", credentials=creds)
 
-        # Assuming you're appending to column A
-        values = [[email]]
+        # Including email, hashed_password, and is_active (set to 1) for the new row
+        values = [[email, hashed_password, str(registered_datetime), 1]]
         body = {"values": values}
         result = service.spreadsheets().values().append(
-            spreadsheetId=self.email_spreadsheet_id, range="A:B",
+            spreadsheetId=self.email_spreadsheet_id, range="A:D",
             valueInputOption="RAW", body=body).execute()
-        
+    
         return result
 
     def create_account_clicked(self):
@@ -404,7 +427,11 @@ class CreateAccountDialog(QDialog):
         password = self.password_input.text()
         confirm_password = self.confirm_password_input.text()
 
-        if self.is_email_registered(email):
+        if self.is_email_registered_local(email):
+            show_message("Error", "This email is already in use locally.")
+            return
+        
+        if self.is_email_registered_cloud(email):
             show_message("Error", "This email is already in use.")
             return
 
@@ -420,18 +447,19 @@ class CreateAccountDialog(QDialog):
             return
 
         user_password_hash = hash_login_password(password)
+        uph_as_base64_str = base64.b64encode(user_password_hash).decode("utf-8") # Hashed password must be converted to string before being written to Google Sheets
 
         try:
+            # Register the email in the Google Sheet
+            self.register_email(email, uph_as_base64_str, datetime.datetime.now())
+
             # Connect to database
-            with sqlite3.connect("./resources/accounts_database.db") as conn:
+            with sqlite3.connect(LOCAL_DB_CONN) as conn:
                 cur = conn.cursor()
 
                 # Insert a new record into the users table with the email and password
                 cur.execute("INSERT INTO users (email, user_password_hash) VALUES (?, ?);", 
                             (email, user_password_hash))
-
-            # Register the email in the Google Sheet
-            self.register_email(email)
 
             self.email_input.clear()
             self.password_input.clear()
@@ -531,7 +559,7 @@ class EditUserPassword(QDialog):
 
         try:
             # Connect to database
-            with sqlite3.connect("./resources/accounts_database.db") as conn:
+            with sqlite3.connect(LOCAL_DB_CONN) as conn:
                 cur = conn.cursor()
 
                 # Get password hash and salt for the provided email 
@@ -579,7 +607,7 @@ class SignInDialog(QDialog):
 
         try:
             # Connect to database
-            with sqlite3.connect("./resources/accounts_database.db") as conn:
+            with sqlite3.connect(LOCAL_DB_CONN) as conn:
                 cur = conn.cursor()
 
                 # Get password hash and salt for the provided email 
@@ -856,19 +884,19 @@ class App(QMainWindow):
         self.manage_account_action = QAction("Manage Accounts", self)
         self.manage_account_action.setEnabled(False) # Disabled by default unless there is a user logged in
         self.sign_in_action = QAction("Sign In", self)
-        # self.print_user_action = QAction("Print User", self)
+        self.print_user_action = QAction("Print User", self)
 
         # Connect actions to the methods
         self.create_account_action.triggered.connect(self.create_account)
         self.manage_account_action.triggered.connect(self.manage_account)
         self.sign_in_action.triggered.connect(self.sign_in)
-        # self.print_user_action.triggered.connect(self.print_user)
+        self.print_user_action.triggered.connect(self.print_user)
 
         # Add actions to the 'Account' menu
         self.account_menu.addAction(self.create_account_action)
         self.account_menu.addAction(self.manage_account_action)
         self.account_menu.addAction(self.sign_in_action)
-        # self.account_menu.addAction(self.print_user_action)
+        self.account_menu.addAction(self.print_user_action)
 
         # Add 'Account' menu to the menu bar
         self.menu_bar.addMenu(self.account_menu)
@@ -897,10 +925,13 @@ class App(QMainWindow):
         sign_in = SignInDialog(self, self)
         sign_in.show()
 
-    # def print_user(self):
-    #     show_message("Current User", f"Current user is {self.current_user_id}.")
-    #     print(self.title, self.current_user_email, self.current_user_password_hash)
-    #     return
+    def print_user(self):
+        # show_message("Current User", f"Current user is {self.current_user_id}.")
+        show_message("DB Name", LOCAL_DB_CONN)
+        # print(self.title, self.current_user_email, self.current_user_password_hash)
+        return
+    
+
 
 
 if __name__ == "__main__":
