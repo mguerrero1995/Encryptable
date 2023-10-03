@@ -5,9 +5,10 @@
 **Owner/Developer:** Manny Guerrero  
 **Website:** https://brand.page/Encryptable
 **Email:** EncryptableService@gmail.com
+**Phone:** (530) 219-2898
 **Owner's Professional LinkedIn:** https://www.linkedin.com/in/manny-g-933970263/
-**Date:** September 28, 2023  
-**Version:** 0.2.1
+**Date:** October 3rd, 2023  
+**Version:** 0.3.0
 **Status:** Beta / Testing Stage
 
 ---
@@ -22,17 +23,10 @@ We appreciate your understanding and welcome feedback and reports of any issues 
 
 ---
 
-## What's New in Version 0.2.1
+## What's New in Version 0.3.0
 
 **New Features:**
-- **User Account Support:** Added a backend SQLite database to support the use of user accounts. 
-  - *Create Account:* Users now have the option to create an account by providing an email and password. Passwords are securely stored as hashes.
-  - *Logged In State Tracking:* Application can now track if and which user is currently logged in.
-  - *Change Password:* Users can now change their passwords at any time through the 'Manage Acount' toolbar item.
-  - *File Metadata Storage:* When a logged in user encrypts a file, the encryption data for that file is stored securely as hashed data in the encrypted_files table. Similarly, when a file is decrypted by a logged in user, the entry for that file is deleted from the encrypted_files table.
-
-**Bug Fixes:**
-- A bug was fixed where the application crashed whenever the "Enter Password" dialog was closed using the close button.
+- **Folder-Level Encryption/Decryption:** Encrypt or decrypt entire folders. App automatically detects which files are already encrypted or decrypted when performing the folder search in order to avoid double-encrypting or attempting to decrypt unencrypted files. Current version does not support recursive directory encryption/decryption, but we are planning to include this in a near future release.
 
 ---
 
@@ -46,6 +40,7 @@ Encryptable is an open-source, free-to-use desktop application designed to offer
 - **Batch Processing:** Encrypt or decrypt multiple files at once, a feature that offers convenience and saves time.
 - **Drag and Drop:** Easily add files for encryption or decryption using a drag-and-drop interface.
 - **Custom File Extensions:** Encrypted files are given a custom extension to prevent double encryption and facilitate easy identification.
+- **User Account Support:** Basic user account functionality. Create/login to an account using any email that has not previously been registered.
 - **Graphical User Interface (GUI):** A user-friendly GUI built with PyQt6 for seamless user experience.
 
 ## How to Use

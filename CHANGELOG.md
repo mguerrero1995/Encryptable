@@ -36,3 +36,8 @@
 ### Version 0.2.1 (Beta Release) - October 1st, 2023
 **Bug Fixes:**
 - A bug was fixed where the application crashed whenever the "Enter Password" dialog was closed using the close button.
+
+## What's New in Version 0.3.0
+
+**New Features:**
+- **Folder-Level Encryption/Decryption:** Encrypt or decrypt entire folders. App automatically detects which files are already encrypted or decrypted when performing the folder search in order to avoid double-encrypting or attempting to decrypt unencrypted files. Current version does not support recursive directory encryption/decryption, but we are planning to include this in a near future release.
