@@ -77,6 +77,7 @@ def key_from_password(password, salt):
 
 # Encrypt the file
 def encrypt_file(file_path, password, user_id):
+    print(os.path.splitext(file_path)[1], os.path.splitext(file_path)[1] == ".cyph")
     if os.path.splitext(file_path)[1] == ".cyph": # Check if the file is already encrypted (i.e has custom ".cyph" extension)
         raise ValueError(f"Error: {os.path.normpath(file_path)} is already encrypted. Please ensure that all selected files are unencrypted.")
     
@@ -113,8 +114,8 @@ def encrypt_file(file_path, password, user_id):
                                 (user_id, os.path.basename(encrypted_file_path), header, datetime.datetime.now()))
             except Exception as e:
                 show_message("Error", str(e))
-    except Exception as e:
-        show_message("Error", str(e))
+    except:
+        raise ValueError(f"Encryption failed for {file_path}")
 
 # Decrypt the file
 def decrypt_file(file_path, password, user_id):
@@ -654,7 +655,7 @@ class EncyrptionUI(QWidget):
         self.configurations_label = QLabel("Configurations:")
         self.configurations_layout.addWidget(self.configurations_label)
         
-        self.retain_target_file = QCheckBox("Retain Original File(s)")
+        self.retain_target_file = QCheckBox("Retain Target File(s)")
         self.retain_target_file.setChecked(False)
         self.configurations_layout.addWidget(self.retain_target_file)
 
@@ -715,23 +716,35 @@ class EncyrptionUI(QWidget):
             for path in fls:
                 # If the path is a directory, get all the files in it (skip ".cyph" file because they are already encrypted)
                 if os.path.isdir(path):
+                    response = self.prompt_directory_encryption(path)
+                    if response == QMessageBox.StandardButton.No: # If the user chooses to skip the directory
+                        continue
+
                     files_in_directory = [os.path.join(path, file) for file in os.listdir(path) if os.path.isfile(os.path.join(path, file)) and os.path.splitext(file)[1] != ".cyph"]
                     if not files_in_directory:
-                        show_message("Message", f"There are no unencrypted files in `{os.path.normpath(path)}`or the folder is empty.")
+                        show_message("Message", f"There are no unencrypted files in `{os.path.normpath(path)}` or the folder is empty.")
                         continue
+
                     for file in files_in_directory:
                         encrypt_file(file, password, self.app_instance.current_user_id)
                         if not retain_target_file:
                             os.remove(file)
-                else:
-                    encrypt_file(path, password, self.app_instance.current_user_id)
-                    if not retain_target_file:
-                        os.remove(path)
+                    else:
+                        encrypt_file(path, password, self.app_instance.current_user_id)
+                        if not retain_target_file:
+                            os.remove(path)
 
             show_message("Success", "All files have been successfully encrypted.")
             self.file_path_input.clear()
         except Exception as e:
             show_message("Error", str(e))
+        
+    def prompt_directory_encryption(self, directory_path):
+        response = QMessageBox.warning(self, 
+                                    "Directory Encryption Confirmation", 
+                                    f"You are about to encrypt the contents of the directory {directory_path}. Continue?",
+                                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        return response
 
     def decrypt_clicked(self):
         file_path = self.file_path_input.text()
