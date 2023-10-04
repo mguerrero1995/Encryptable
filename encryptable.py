@@ -75,9 +75,7 @@ def key_from_password(password, salt):
     )
     return kdf.derive(password.encode())
 
-# Encrypt the file
 def encrypt_file(file_path, password, user_id):
-    print(os.path.splitext(file_path)[1], os.path.splitext(file_path)[1] == ".cyph")
     if os.path.splitext(file_path)[1] == ".cyph": # Check if the file is already encrypted (i.e has custom ".cyph" extension)
         raise ValueError(f"Error: {os.path.normpath(file_path)} is already encrypted. Please ensure that all selected files are unencrypted.")
     
@@ -119,7 +117,6 @@ def encrypt_file(file_path, password, user_id):
 
 # Decrypt the file
 def decrypt_file(file_path, password, user_id):
-    print(os.path.splitext(file_path)[1], os.path.splitext(file_path)[1], os.path.splitext(file_path)[1] != ".cyph")
     if os.path.splitext(file_path)[1] != ".cyph":
         raise ValueError(f"Error: {os.path.normpath(file_path)} is not encrypted or was not encrypted by this application.\n" 
                         "\nPlease provide files with a `.cyph` extension.")
@@ -712,12 +709,15 @@ class EncyrptionUI(QWidget):
         if not password:
             return
         
+        files_encrypted = False  # Initialize the flag to False at the start
+
         try:
             for path in fls:
                 # If the path is a directory, get all the files in it (skip ".cyph" file because they are already encrypted)
                 if os.path.isdir(path):
                     response = self.prompt_directory_encryption(path)
-                    if response == QMessageBox.StandardButton.No: # If the user chooses to skip the directory
+                    if response == QMessageBox.StandardButton.No:  # If the user chooses to skip the directory
+                        show_message("Directory Skipped", f"Skipped encryption for `{path}`.")
                         continue
 
                     files_in_directory = [os.path.join(path, file) for file in os.listdir(path) if os.path.isfile(os.path.join(path, file)) and os.path.splitext(file)[1] != ".cyph"]
@@ -729,20 +729,29 @@ class EncyrptionUI(QWidget):
                         encrypt_file(file, password, self.app_instance.current_user_id)
                         if not retain_target_file:
                             os.remove(file)
-                    else:
-                        encrypt_file(path, password, self.app_instance.current_user_id)
-                        if not retain_target_file:
-                            os.remove(path)
+                        files_encrypted = True  # Set the flag to True since a file was encrypted
+                    continue  # Skip the subsequent code and move to the next item in fls
 
-            show_message("Success", "All files have been successfully encrypted.")
+                # Process individual files
+                encrypt_file(path, password, self.app_instance.current_user_id)
+
+                if not retain_target_file:
+                    os.remove(path)
+
+                files_encrypted = True  # Set the flag to True since a file was encrypted
+
+            if files_encrypted:  # Only display the success message if the flag is True
+                show_message("Success", "All files have been successfully encrypted.")
+            
             self.file_path_input.clear()
         except Exception as e:
             show_message("Error", str(e))
+
         
     def prompt_directory_encryption(self, directory_path):
         response = QMessageBox.warning(self, 
                                     "Directory Encryption Confirmation", 
-                                    f"You are about to encrypt the contents of the directory {directory_path}. Continue?",
+                                    f"You are about to encrypt the contents of the directory `{os.path.normpath(directory_path)}`. Continue?",
                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         return response
 
@@ -765,6 +774,8 @@ class EncyrptionUI(QWidget):
         if not password:
             return
         
+        files_decrypted = False  # Initialize the flag to False at the start
+
         try:
             for path in fls:
                 # If the path is a directory, get all the  ".cyph" (i.e. encrypted) files in it
@@ -777,12 +788,19 @@ class EncyrptionUI(QWidget):
                         decrypt_file(file, password, self.app_instance.current_user_id)
                         if not retain_target_file:
                             os.remove(file)
-                else:
-                    decrypt_file(path, password, self.app_instance.current_user_id)
-                    if not retain_target_file:
-                        os.remove(path)
+                        files_decrypted = True  # Set the flag to True since a file was encrypted
+                    continue  # Skip the subsequent code and move to the next item in fls
+                
+                decrypt_file(path, password, self.app_instance.current_user_id)
+                
+                if not retain_target_file:
+                    os.remove(path)
 
-            show_message("Success", "All files have been successfully decrypted.")
+                files_decrypted = True  # Set the flag to True since a file was encrypted
+
+            if files_decrypted:  # Only display the success message if the flag is True
+                show_message("Success", "All files have been successfully encrypted.")
+            
             self.file_path_input.clear()
         except Exception as e:
             show_message("Error", str(e))
@@ -826,7 +844,7 @@ class App(QMainWindow):
         self.account_menu.addAction(self.create_account_action)
         self.account_menu.addAction(self.manage_account_action)
         self.account_menu.addAction(self.sign_in_action)
-        self.account_menu.addAction(self.print_user_action)
+        # self.account_menu.addAction(self.print_user_action)
 
         # Add 'Account' menu to the menu bar
         self.menu_bar.addMenu(self.account_menu)
