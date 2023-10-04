@@ -769,7 +769,11 @@ class EncyrptionUI(QWidget):
                     if not retain_target_file:
                         os.remove(path)
 
-            show_message("Success", "All files have been successfully decrypted.")
+                files_decrypted = True  # Set the flag to True since a file was encrypted
+
+            if files_decrypted:  # Only display the success message if the flag is True
+                show_message("Success", "All files have been successfully decrypted.")
+            
             self.file_path_input.clear()
         except Exception as e:
             show_message("Error", str(e))
@@ -848,8 +852,6 @@ class App(QMainWindow):
         # print(self.title, self.current_user_email, self.current_user_password_hash)
         return
     
-
-
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
