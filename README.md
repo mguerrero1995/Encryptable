@@ -59,6 +59,8 @@ Encryptable is an open-source, free-to-use desktop application designed to offer
 
 ---
 
+## Windows Anti-Virus Issues
+
 **Note on Windows Defender:** Due to the nature of this application involving encryption libraries, some users have reported that Windows flags Encryptable as a potential virus/malware. We assure you that Encryptable does not contain any malware. If you face this issue, you can exclude the directory you extract the files to from Windows Defender scans. Here's how:
 
 1. Open the **Windows Security** app by clicking on the shield icon in the taskbar or searching for it in the start menu.
