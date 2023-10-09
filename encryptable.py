@@ -224,6 +224,7 @@ class PasswordDialog(QDialog):
 
         # Encrypt/Decrypt action button
         self.action_btn = QPushButton(self.mode, self)
+        self.action_btn.setDefault(True)  # Make this button the default button
         self.action_btn.clicked.connect(self.accept)
         self.password_dialog_layout.addWidget(self.action_btn)
         self.password_dialog_layout.setAlignment(self.action_btn, Qt.AlignmentFlag.AlignCenter)  # Center-align the button
@@ -809,7 +810,7 @@ class EncyrptionUI(QWidget):
 class App(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.title = APP_NAME
+        self.title = "Encryptable" #APP_NAME
         self.app_logo = QIcon(APP_LOGO)
         self.current_user_id = None
         self.current_user_email = None
