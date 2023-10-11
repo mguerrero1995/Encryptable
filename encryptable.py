@@ -920,23 +920,14 @@ class App(QMainWindow):
         # Only perform the check if the user is currently marked as premium
         if self.is_premium_user:
             # Execute the function to check the license status from the server
-            # This is a placeholder; you'll need to implement the actual check
             is_valid = perform_server_side_license_check()
             if is_valid:
                 self.is_current_user_pro = True
 
             if not is_valid:
                 # Handle what happens if the user no longer has a valid premium license
-                # For example, update the UI, disable premium features, etc.
+                # May want additional updates, such as UI or other settings
                 self.is_current_user_pro = False
-                self.handle_license_invalid()
-
-
-    def handle_license_invalid(self):
-        # Implement what should happen if the license check fails
-        self.is_premium_user = False
-        # Update the UI, notify the user, etc.
-        pass
 
     # Define the methods to handle the create account and sign-in actions
     def create_account(self):
