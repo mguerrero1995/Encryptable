@@ -16,7 +16,8 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from google.oauth2.credentials import Credentials
 from googleapiclient import discovery
-from PyQt6.QtCore import Qt
+from googleapiclient.errors import HttpError
+from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QAction, QIcon, QPixmap
 from PyQt6.QtWidgets import (QApplication, QCheckBox, QDialog, QFileDialog,
                              QFormLayout, QFrame, QHBoxLayout, QLabel,
@@ -192,6 +193,45 @@ def show_message(title, message):
     msg.setText(message)
     msg.exec()
 
+def get_google_credentials():
+    # Using the decrypted config data to form the credentials
+    creds = Credentials.from_authorized_user_info(config_data["google_cloud_api"])
+    return creds
+
+def perform_server_side_license_check(email):
+    try:
+        # Get the Google API credentials and build the service
+        creds = get_google_credentials()
+        service = discovery.build("sheets", "v4", credentials=creds)
+
+        # The ID of your spreadsheet and the range of cells we want to retrieve
+        spreadsheet_id = config_data["resources"]["registered_emails_sheet_id"]  # TODO: Update placeholder
+        range_name = "A:F"  # Assuming emails are in column "A" and is_pro_user flags are in column "F"
+
+        # Request the values from the sheet
+        sheet = service.spreadsheets()
+        result = sheet.values().get(spreadsheetId=spreadsheet_id, range=range_name).execute()
+        values = result.get("values", [])
+
+        # Check if we got any data back
+        if not values:
+            print("No data found.")
+            return False
+
+        # Look for the user's email in the data
+        for row in values:
+            # Assuming the email is the first element and the is_pro_user flag is the sixth element in the row
+            if row[0] == email:
+                is_pro_user = row[5]  # Column "F" (0-indexed)
+                return bool(is_pro_user)  # Convert 1/0 from spreadsheet to True/False
+
+        # If we reach this point, the user"s email was not found
+        print("User not found.")
+        return False
+    except HttpError as e:
+            print(f"An error occurred: {e}")
+            return False
+    
 
 class PasswordDialog(QDialog):
     def __init__(self, mode, parent=None):
@@ -248,7 +288,7 @@ class CreateAccountDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.config_data = config_data
-        self.email_spreadsheet_id = "1AH3Qt0vxfDZd_Jl-JhGEDO_8xlKGnmMjwtsRP3LNYug"
+        self.email_spreadsheet_id = config_data["resources"]["registered_emails_sheet_id"]
 
         self.setWindowTitle("Create New Account")
 
@@ -280,11 +320,6 @@ class CreateAccountDialog(QDialog):
         self.layout.addWidget(self.create_account_button)
 
         self.setLayout(self.layout)
-
-    def get_google_credentials(self):
-            # Using the decrypted config data to form the credentials
-            creds = Credentials.from_authorized_user_info(self.config_data["google_cloud_api"])
-            return creds
     
     def is_email_registered_local(self, email):
         """
@@ -307,12 +342,12 @@ class CreateAccountDialog(QDialog):
         """
         Check if the email is already registered in the Google Sheet.
         """
-        creds = self.get_google_credentials()
+        creds = get_google_credentials()
         service = discovery.build("sheets", "v4", credentials=creds)
 
         # Assuming you have only one sheet and you're checking the entire column A for emails
         result = service.spreadsheets().values().get(
-            spreadsheetId=self.email_spreadsheet_id, range="A:D").execute()
+            spreadsheetId=self.email_spreadsheet_id, range="A:A").execute()
         values = result.get("values", [])
 
         # Flatten the list and check if email exists
@@ -323,14 +358,14 @@ class CreateAccountDialog(QDialog):
         """
         Register the email, hashed password, and is_active in the Google Sheet.
         """
-        creds = self.get_google_credentials()
+        creds = get_google_credentials()
         service = discovery.build("sheets", "v4", credentials=creds)
 
-        # Including email, hashed_password, and is_active (set to 1) for the new row
-        values = [[email, hashed_password, str(registered_datetime), 1]]
+        # Including email, hashed_password, and registered_datetime, last_login_datetime, pro_license, and is_pro_user (0 default) for the new row
+        values = [[email, hashed_password, str(registered_datetime), None, None, 0]]
         body = {"values": values}
         result = service.spreadsheets().values().append(
-            spreadsheetId=self.email_spreadsheet_id, range="A:D",
+            spreadsheetId=self.email_spreadsheet_id, range="A:F",
             valueInputOption="RAW", body=body).execute()
     
         return result
@@ -540,6 +575,7 @@ class SignInDialog(QDialog):
                 self.app_instance.current_user_password_hash = user_password_hash
                 self.app_instance.title = f"{APP_NAME}   ({email})"
                 self.app_instance.setWindowTitle(self.app_instance.title)
+                self.app_instance.is_current_user_pro = perform_server_side_license_check(email)
                 self.app_instance.manage_account_action.setEnabled(True)
                 self.app_instance.sign_out_action.setEnabled(True)
                 self.email_input.clear()
@@ -817,6 +853,7 @@ class App(QMainWindow):
         self.current_user_id = None
         self.current_user_email = None
         self.current_user_password_hash = None
+        self.is_current_user_pro = False
         self.initUI()
 
     def initUI(self):
@@ -852,7 +889,7 @@ class App(QMainWindow):
         self.account_menu.addAction(self.manage_account_action)
         self.account_menu.addSeparator()
         self.account_menu.addAction(self.sign_out_action)
-        self.account_menu.addAction(self.print_user_action)
+        # self.account_menu.addAction(self.print_user_action)
 
         # Add 'Account' menu to the menu bar
         self.menu_bar.addMenu(self.account_menu)
@@ -866,6 +903,40 @@ class App(QMainWindow):
 
         self.show()
     
+
+        self.setup_periodic_license_check() # Initiate a check every 15 minutes to see if a signed in user has a valid license
+
+    def setup_periodic_license_check(self):
+        # Create a timer
+        self.license_check_timer = QTimer(self)
+        # Set the interval to 15 minutes (in milliseconds)
+        self.license_check_timer.setInterval(15 * 60 * 1000)  # 15 minutes
+        # Connect the timer to the function to check the license
+        self.license_check_timer.timeout.connect(self.check_user_license)
+        # Start the timer
+        self.license_check_timer.start()
+
+    def check_user_license(self):
+        # Only perform the check if the user is currently marked as premium
+        if self.is_premium_user:
+            # Execute the function to check the license status from the server
+            # This is a placeholder; you'll need to implement the actual check
+            is_valid = perform_server_side_license_check()
+            if is_valid:
+                self.is_current_user_pro = True
+
+            if not is_valid:
+                # Handle what happens if the user no longer has a valid premium license
+                # For example, update the UI, disable premium features, etc.
+                self.is_current_user_pro = False
+                self.handle_license_invalid()
+
+
+    def handle_license_invalid(self):
+        # Implement what should happen if the license check fails
+        self.is_premium_user = False
+        # Update the UI, notify the user, etc.
+        pass
 
     # Define the methods to handle the create account and sign-in actions
     def create_account(self):
@@ -886,6 +957,7 @@ class App(QMainWindow):
         self.current_user_id = None
         self.current_user_email = None
         self.current_user_password_hash = None
+        self.is_current_user_pro = False
 
         # Update window title
         self.setWindowTitle(self.title)
@@ -900,7 +972,7 @@ class App(QMainWindow):
     def print_user(self):
         # show_message("Current User", f"Current user is {self.current_user_id}.")
         # show_message("DB Name", config_data["google_cloud_api"])
-        print(config_data["google_cloud_api"])
+        print(self.is_current_user_pro)
         # print(self.title, self.current_user_email, self.current_user_password_hash)
         return
     
