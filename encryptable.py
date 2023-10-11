@@ -595,7 +595,7 @@ class DropZone(QLabel):
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setFrameStyle(QFrame.Shape.Box | QFrame.Shadow.Sunken)
         self.setStyleSheet("background-color: #E0E0E0;")
-        self.setFixedHeight(50)
+        # self.setFixedHeight(50)
         self.setText("Drop File(s) Here")
 
     def dragEnterEvent(self, event):
@@ -653,7 +653,7 @@ class EncyrptionUI(QWidget):
         self.drop_zone_layout = QHBoxLayout()
         self.drop_zone_layout.addStretch() # Add a stretch before the drop zone so that it stays centered when the window expands
         self.drop_zone = DropZone(self)
-        self.drop_zone.setFixedWidth(650)  # Set the maximum width
+        self.drop_zone.setFixedSize(650, 100)
         self.drop_zone_layout.addWidget(self.drop_zone)
         self.drop_zone_layout.addStretch() # Add a stretch after the drop zone so that it stays centered when the window expands
 
