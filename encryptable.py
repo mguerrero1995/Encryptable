@@ -26,13 +26,13 @@ from PyQt6.QtWidgets import (QApplication, QCheckBox, QDialog, QFileDialog,
 
 def load_config(config_path, encryption_key):
     try:
-        with open(config_path, 'rb') as f:
+        with open(config_path, "rb") as f:
             encrypted_data = f.read()
 
         cipher_suite = Fernet(encryption_key)
         decrypted_data = cipher_suite.decrypt(encrypted_data)
 
-        decrypted_str = decrypted_data.decode('utf-8')
+        decrypted_str = decrypted_data.decode("utf-8")
 
         return json.loads(decrypted_str)
     except:
@@ -44,6 +44,7 @@ ek = b'5sE83ehZ3E6GgIYx1DkzKbZWiOWhAv3R0YumjC1iHkM='
 
 # Load and decrypt the config
 config_data = load_config(config_file, ek)
+
 
 # Pull out individual configs
 APP_NAME = config_data["application"]["name"]
@@ -540,6 +541,7 @@ class SignInDialog(QDialog):
                 self.app_instance.title = f"{APP_NAME}   ({email})"
                 self.app_instance.setWindowTitle(self.app_instance.title)
                 self.app_instance.manage_account_action.setEnabled(True)
+                self.app_instance.sign_out_action.setEnabled(True)
                 self.email_input.clear()
                 self.password_input.clear()
                 self.close()
@@ -810,7 +812,7 @@ class EncyrptionUI(QWidget):
 class App(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.title = "Encryptable" #APP_NAME
+        self.title = APP_NAME #APP_NAME
         self.app_logo = QIcon(APP_LOGO)
         self.current_user_id = None
         self.current_user_email = None
@@ -829,28 +831,32 @@ class App(QMainWindow):
         self.account_menu = QMenu("Account", self)
 
         # Create actions to add to the 'Account' menu
-        self.create_account_action = QAction("Create Account", self)
-        self.manage_account_action = QAction("Manage Accounts", self)
-        self.manage_account_action.setEnabled(False) # Disabled by default unless there is a user logged in
         self.sign_in_action = QAction("Sign In", self)
+        self.create_account_action = QAction("Create Account", self)
+        self.manage_account_action = QAction("Manage Account", self)
+        self.manage_account_action.setEnabled(False) # Disabled by default unless there is a user logged in
+        self.sign_out_action = QAction("Sign Out", self)
+        self.sign_out_action.setEnabled(False) # Disabled by default unless there is a user logged in
         self.print_user_action = QAction("Print User", self)
 
         # Connect actions to the methods
+        self.sign_in_action.triggered.connect(self.sign_in)
         self.create_account_action.triggered.connect(self.create_account)
         self.manage_account_action.triggered.connect(self.manage_account)
-        self.sign_in_action.triggered.connect(self.sign_in)
+        self.sign_out_action.triggered.connect(self.sign_out)
         self.print_user_action.triggered.connect(self.print_user)
 
         # Add actions to the 'Account' menu
+        self.account_menu.addAction(self.sign_in_action)
         self.account_menu.addAction(self.create_account_action)
         self.account_menu.addAction(self.manage_account_action)
-        self.account_menu.addAction(self.sign_in_action)
-        # self.account_menu.addAction(self.print_user_action)
+        self.account_menu.addSeparator()
+        self.account_menu.addAction(self.sign_out_action)
+        self.account_menu.addAction(self.print_user_action)
 
         # Add 'Account' menu to the menu bar
         self.menu_bar.addMenu(self.account_menu)
 
-        # self.setWindowTitle(self.title)
         self.resize(600, 750)
 
         self.central_widget = EncyrptionUI(self, self)
@@ -874,9 +880,27 @@ class App(QMainWindow):
         sign_in = SignInDialog(self, self)
         sign_in.show()
 
+    def sign_out(self):
+        # Update variables
+        self.title = APP_NAME
+        self.current_user_id = None
+        self.current_user_email = None
+        self.current_user_password_hash = None
+
+        # Update window title
+        self.setWindowTitle(self.title)
+
+        # Update button statuses
+        self.manage_account_action.setEnabled(False) # Disabled by default unless there is a user logged in
+        self.sign_out_action.setEnabled(False) # Disabled by default unless there is a user logged in
+
+        show_message("Signed Out", "You have successfully signed out.")
+        return
+
     def print_user(self):
         # show_message("Current User", f"Current user is {self.current_user_id}.")
-        show_message("DB Name", LOCAL_DB_CONN)
+        # show_message("DB Name", config_data["google_cloud_api"])
+        print(config_data["google_cloud_api"])
         # print(self.title, self.current_user_email, self.current_user_password_hash)
         return
     
