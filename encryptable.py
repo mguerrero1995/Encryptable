@@ -77,7 +77,7 @@ def key_from_password(password, salt):
     )
     return kdf.derive(password.encode())
 
-def encrypt_file(file_path, password, user_id):
+def encrypt_file(file_path, password, email):
     if os.path.splitext(file_path)[1] == ".cyph": # Check if the file is already encrypted (i.e has custom ".cyph" extension)
         raise ValueError(f"Error: {os.path.normpath(file_path)} is already encrypted. Please ensure that all selected files are unencrypted.")
     
@@ -105,20 +105,20 @@ def encrypt_file(file_path, password, user_id):
             f.write(salt + iv + ciphertext)
         
         # Write the encryption metadata to the database if a user is logged in
-        if user_id:
+        if email:
             try:
                 with sqlite3.connect(LOCAL_DB_CONN) as conn:
                     cur = conn.cursor()
-                    cur.execute("INSERT INTO encrypted_files (user_id, file_name, encryption_signature, encrypted_date) "
+                    cur.execute("INSERT INTO encrypted_files (email, file_name, encryption_signature, encrypted_date) "
                                 "VALUES (?, ?, ?, ?)", 
-                                (user_id, os.path.basename(encrypted_file_path), header, datetime.datetime.now()))
+                                (email, os.path.basename(encrypted_file_path), header, datetime.datetime.now()))
             except Exception as e:
                 show_message("Error", str(e))
     except:
         raise ValueError(f"Encryption failed for {file_path}")
 
 # Decrypt the file
-def decrypt_file(file_path, password, user_id):
+def decrypt_file(file_path, password, email):
     if os.path.splitext(file_path)[1] != ".cyph":
         raise ValueError(f"Error: {os.path.normpath(file_path)} is not encrypted or was not encrypted by this application.\n" 
                         "\nPlease provide files with a `.cyph` extension.")
@@ -156,12 +156,12 @@ def decrypt_file(file_path, password, user_id):
             f.write(plaintext)
 
         # Delete the encryption metadata from the database if a user is logged in
-        if user_id:
+        if email:
             try:
                 with sqlite3.connect(LOCAL_DB_CONN) as conn:
                     cur = conn.cursor()
-                    cur.execute("DELETE FROM encrypted_files WHERE user_id = ? AND file_name = ?", 
-                                (user_id, os.path.basename(file_path)))
+                    cur.execute("DELETE FROM encrypted_files WHERE email = ? AND file_name = ?", 
+                                (email, os.path.basename(file_path)))
             except Exception as e:
                 show_message("Error", str(e))
     except: 
@@ -195,17 +195,17 @@ def show_message(title, message):
 
 def get_google_credentials():
     # Using the decrypted config data to form the credentials
-    creds = Credentials.from_authorized_user_info(config_data["google_cloud_api"])
-    return creds
+    credentials = Credentials.from_authorized_user_info(config_data["google_cloud_api"])
+    return credentials
 
 def perform_server_side_license_check(email):
     try:
         # Get the Google API credentials and build the service
-        creds = get_google_credentials()
-        service = discovery.build("sheets", "v4", credentials=creds)
+        credentials = get_google_credentials()
+        service = discovery.build("sheets", "v4", credentials=credentials)
 
         # The ID of your spreadsheet and the range of cells we want to retrieve
-        spreadsheet_id = config_data["resources"]["registered_emails_sheet_id"]  # TODO: Update placeholder
+        spreadsheet_id = config_data["resources"]["registered_emails_sheet_id"] 
         range_name = "A:F"  # Assuming emails are in column "A" and is_pro_user flags are in column "F"
 
         # Request the values from the sheet
@@ -319,31 +319,14 @@ class CreateAccountDialog(QDialog):
         self.layout.addWidget(self.confirm_password_input)
         self.layout.addWidget(self.create_account_button)
 
-        self.setLayout(self.layout)
-    
-    def is_email_registered_local(self, email):
-        """
-        Check if the email exists in the local database.
-        """
-        try:
-            with sqlite3.connect(LOCAL_DB_CONN) as conn:
-                cur = conn.cursor()
-
-                # Insert a new record into the users table with the email and password
-                email_exists = cur.execute("SELECT 1 FROM users WHERE email = ?", (email,)).fetchone()
-        
-            return email_exists
-        except Exception as e:
-            show_message("Error", str(e))
-            return
-        
+        self.setLayout(self.layout)  
 
     def is_email_registered_cloud(self, email):
         """
         Check if the email is already registered in the Google Sheet.
         """
-        creds = get_google_credentials()
-        service = discovery.build("sheets", "v4", credentials=creds)
+        credentials = get_google_credentials()
+        service = discovery.build("sheets", "v4", credentials=credentials)
 
         # Assuming you have only one sheet and you're checking the entire column A for emails
         result = service.spreadsheets().values().get(
@@ -353,14 +336,11 @@ class CreateAccountDialog(QDialog):
         # Flatten the list and check if email exists
         flat_list = [item for sublist in values for item in sublist]
         return email in flat_list
-
-    def register_email(self, email, hashed_password, registered_datetime):
+    
+    def register_email(self, service, email, hashed_password, registered_datetime):
         """
         Register the email, hashed password, and is_active in the Google Sheet.
         """
-        creds = get_google_credentials()
-        service = discovery.build("sheets", "v4", credentials=creds)
-
         # Including email, hashed_password, and registered_datetime, last_login_datetime, pro_license, and is_pro_user (0 default) for the new row
         values = [[email, hashed_password, str(registered_datetime), None, None, 0]]
         body = {"values": values}
@@ -369,16 +349,15 @@ class CreateAccountDialog(QDialog):
             valueInputOption="RAW", body=body).execute()
     
         return result
-
+            
     def create_account_clicked(self):
         email = self.email_input.text()
         password = self.password_input.text()
         confirm_password = self.confirm_password_input.text()
 
-        if self.is_email_registered_local(email):
-            show_message("Error", "This email is already in use locally.")
-            return
-        
+        credentials = get_google_credentials()
+        service = discovery.build("sheets", "v4", credentials=credentials)
+
         if self.is_email_registered_cloud(email):
             show_message("Error", "This email is already in use.")
             return
@@ -399,15 +378,8 @@ class CreateAccountDialog(QDialog):
 
         try:
             # Register the email in the Google Sheet
-            self.register_email(email, uph_as_base64_str, datetime.datetime.now())
+            self.register_email(service, email, uph_as_base64_str, datetime.datetime.now())
 
-            # Connect to database
-            with sqlite3.connect(LOCAL_DB_CONN) as conn:
-                cur = conn.cursor()
-
-                # Insert a new record into the users table with the email and password
-                cur.execute("INSERT INTO users (email, user_password_hash) VALUES (?, ?);", 
-                            (email, user_password_hash))
 
             self.email_input.clear()
             self.password_input.clear()
@@ -483,13 +455,57 @@ class EditUserPassword(QDialog):
         self.edit_user_password_layout.addWidget(self.change_password_button)    
 
         self.setLayout(self.edit_user_password_layout)
+    
+    def update_password_in_sheet(self, email, new_user_password_hash, spreadsheet_id):
+        try:
+            credentials = get_google_credentials()
+            service = discovery.build("sheets", "v4", credentials=credentials)
+            
+            email_spreadsheet_id = config_data["resources"]["registered_emails_sheet_id"]
+
+            result = service.spreadsheets().values().get(
+                        spreadsheetId=email_spreadsheet_id, range="A:A").execute()
+            values = result.get("values", [])
+
+            # Find the user row
+            user_row = None
+            for i, row in enumerate(values):
+                if row[0] == email:
+                    user_row = i + 1  # Adding 1 as the Sheets API is 1-indexed
+                    break
+
+            if user_row is None:
+                show_message("Error", "User not found")
+                return
+
+            # Now, prepare the new password value
+            password_range = f"registered_emails!B{user_row}:B{user_row}"  
+            value_range_body = {
+                "values": [
+                    [new_user_password_hash]
+                ]
+            }
+
+            # Call the Sheets API to update the cell
+            result = service.spreadsheets().values().update(
+                spreadsheetId=spreadsheet_id, range=password_range,
+                valueInputOption="RAW", body=value_range_body).execute()
+        except Exception as e:
+            raise ValueError(e)
         
     def change_password_clicked(self):
         current_password = self.current_password_input.text()
         new_password = self.new_password_input.text()
         confirm_password = self.confirm_new_password_input.text()
 
-        if not verify_login_password(self.app_instance.current_user_password_hash, current_password):
+        # Decode the stored password hash from base64 before verification
+        try:
+            stored_password_hash = self.app_instance.current_user_password_hash
+        except Exception as e:
+            show_message("Error", f"An error occurred during decoding: {str(e)}")
+            return
+
+        if not verify_login_password(stored_password_hash, current_password):
             self.current_password_input.clear()
             self.new_password_input.clear()
             self.confirm_new_password_input.clear()
@@ -502,22 +518,23 @@ class EditUserPassword(QDialog):
             self.confirm_new_password_input.clear()
             show_message("Error", "New passwords do not match.")
             return
-        
+
         new_user_password_hash = hash_login_password(new_password)
+        new_uph_as_base64_str = base64.b64encode(new_user_password_hash).decode("utf-8")
 
         try:
-            # Connect to database
-            with sqlite3.connect(LOCAL_DB_CONN) as conn:
-                cur = conn.cursor()
+            if new_user_password_hash:
+                email_spreadsheet_id = config_data["resources"]["registered_emails_sheet_id"]
+                self.update_password_in_sheet(self.app_instance.current_user_email, new_uph_as_base64_str, email_spreadsheet_id)
 
-                # Get password hash and salt for the provided email 
-                cur.execute("UPDATE users SET user_password_hash = ? WHERE user_id = ?", (new_user_password_hash, self.app_instance.current_user_id))
-            
-            self.current_password_input.clear()
-            self.new_password_input.clear()
-            self.confirm_new_password_input.clear()
-            show_message("Success", "Password successfully changed.")
-            self.close()
+                # Assuming you want to update the local instance with the new hash as well
+                self.app_instance.current_user_password_hash = new_uph_as_base64_str
+
+                self.current_password_input.clear()
+                self.new_password_input.clear()
+                self.confirm_new_password_input.clear()
+                show_message("Success", "Password successfully changed.")
+                self.close()
         except Exception as e:
             show_message("Error", str(e))
 
@@ -526,6 +543,7 @@ class SignInDialog(QDialog):
     def __init__(self, parent, app_instance):
         super().__init__(parent)
         self.app_instance = app_instance
+        self.email_spreadsheet_id = config_data["resources"]["registered_emails_sheet_id"]  # Ensure this is set correctly
 
         self.setWindowTitle("Sign In")
 
@@ -549,28 +567,71 @@ class SignInDialog(QDialog):
 
         self.setLayout(self.sign_in_layout)
 
+    def get_user_details(self, email, service):
+        # Retrieve data from the spreadsheet
+        result = service.spreadsheets().values().get(spreadsheetId=self.email_spreadsheet_id, range="A:B").execute()
+        values = result.get("values", [])
+
+        for row in values:
+            if row[0] == email:
+                return row[1]  # Return the password hash for the matched email
+
+        return None  # Return None if no match was found
+
+    def update_last_login(self, service, email, date_time):
+        try:
+            email_spreadsheet_id = config_data["resources"]["registered_emails_sheet_id"]
+
+            result = service.spreadsheets().values().get(
+                        spreadsheetId=email_spreadsheet_id, range="A:A").execute()
+            values = result.get("values", [])
+
+            # Find the user row
+            user_row = None
+            for i, row in enumerate(values):
+                if row[0] == email:
+                    user_row = i + 1  # Adding 1 as the Sheets API is 1-indexed
+                    break
+
+            if user_row is None:
+                show_message("Error", "User not found")
+                return
+
+            # Now, prepare the new password value
+            password_range = f"registered_emails!D{user_row}:D{user_row}"  
+            value_range_body = {
+                "values": [
+                    [date_time]
+                ]
+            }
+
+            # Call the Sheets API to update the cell
+            result = service.spreadsheets().values().update(
+                spreadsheetId=email_spreadsheet_id, range=password_range,
+                valueInputOption="RAW", body=value_range_body).execute()
+        except Exception as e:
+            raise ValueError(e)
+        
     def login_clicked(self):
-        # Handle login
         email = self.email_input.text()
         password = self.password_input.text()
 
+        credentials = get_google_credentials()
+        service = discovery.build("sheets", "v4", credentials=credentials)
+
         try:
-            # Connect to database
-            with sqlite3.connect(LOCAL_DB_CONN) as conn:
-                cur = conn.cursor()
+            user_password_hash_base64 = self.get_user_details(email, service)
 
-                # Get password hash and salt for the provided email 
-                login_details = cur.execute("SELECT user_id, user_password_hash FROM users WHERE email = ?", (email,)).fetchone()
-
-            if not login_details: # Verify that a matching email was found
+            if user_password_hash_base64 is None:
                 self.password_input.clear()
                 show_message("Error", "Invalid username or password.")
                 return
 
-            user_id, user_password_hash = login_details[0], login_details[1] # Convert user_password_hash to a binary string instead of a tuple
+            # Decode the base64 password hash before verifying
+            user_password_hash = base64.b64decode(user_password_hash_base64)
         
             if verify_login_password(user_password_hash, password):
-                self.app_instance.current_user_id = user_id
+                self.update_last_login(service, email, str(datetime.datetime.now()))
                 self.app_instance.current_user_email = email
                 self.app_instance.current_user_password_hash = user_password_hash
                 self.app_instance.title = f"{APP_NAME}   ({email})"
@@ -578,12 +639,14 @@ class SignInDialog(QDialog):
                 self.app_instance.is_current_user_pro = perform_server_side_license_check(email)
                 self.app_instance.manage_account_action.setEnabled(True)
                 self.app_instance.sign_out_action.setEnabled(True)
+                self.app_instance.sign_in_action.setEnabled(False)
                 self.email_input.clear()
                 self.password_input.clear()
                 self.close()
             else:
+                self.password_input.clear()
                 show_message("Error", "Invalid username or password.")
-            return
+                return
         except Exception as e:
             show_message("Error", str(e)) 
 
@@ -889,7 +952,7 @@ class App(QMainWindow):
         self.account_menu.addAction(self.manage_account_action)
         self.account_menu.addSeparator()
         self.account_menu.addAction(self.sign_out_action)
-        # self.account_menu.addAction(self.print_user_action)
+        self.account_menu.addAction(self.print_user_action)
 
         # Add 'Account' menu to the menu bar
         self.menu_bar.addMenu(self.account_menu)
@@ -945,7 +1008,6 @@ class App(QMainWindow):
     def sign_out(self):
         # Update variables
         self.title = APP_NAME
-        self.current_user_id = None
         self.current_user_email = None
         self.current_user_password_hash = None
         self.is_current_user_pro = False
@@ -956,14 +1018,14 @@ class App(QMainWindow):
         # Update button statuses
         self.manage_account_action.setEnabled(False) # Disabled by default unless there is a user logged in
         self.sign_out_action.setEnabled(False) # Disabled by default unless there is a user logged in
-
+        self.sign_in_action.setEnabled(True)
         show_message("Signed Out", "You have successfully signed out.")
         return
 
     def print_user(self):
         # show_message("Current User", f"Current user is {self.current_user_id}.")
         # show_message("DB Name", config_data["google_cloud_api"])
-        print(self.is_current_user_pro)
+        print(self.is_current_user_pro, self.current_user_email, self.current_user_password_hash)
         # print(self.title, self.current_user_email, self.current_user_password_hash)
         return
     
