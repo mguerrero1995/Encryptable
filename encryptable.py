@@ -59,6 +59,8 @@ LOCAL_DB_CONN = config_data["resources"]["database_name"]
 
 GC_CLIENT_ID = config_data["google_cloud_api"]["client_id"]
 
+IS_PRO_USER = bool(config_data["application"]["is_pro_version"])
+
 SIGNATURE = b'ENCRYPTABLE_APP'  # Your unique file signature, converted to bytes
 HEADER_ADDITIONAL_LENGTH = 5 # The length of the additional header information, in bytes
 
@@ -924,7 +926,7 @@ class App(QMainWindow):
         self.current_user_id = None
         self.current_user_email = None
         self.current_user_password_hash = None
-        self.is_current_user_pro = False
+        self.is_current_user_pro = IS_PRO_USER
         self.initUI()
 
     def initUI(self):
