@@ -965,7 +965,7 @@ class App(QMainWindow):
         self.account_menu.addAction(self.print_user_action)
 
         # Add 'Account' menu to the menu bar
-        self.menu_bar.addMenu(self.account_menu)
+        # self.menu_bar.addMenu(self.account_menu)
 
         self.resize(600, 750)
 
@@ -977,7 +977,7 @@ class App(QMainWindow):
         self.show()
     
 
-        self.setup_periodic_license_check() # Initiate a check every 15 minutes to see if a signed in user has a valid license
+        # self.setup_periodic_license_check() # Initiate a check every 15 minutes to see if a signed in user has a valid license
 
     def setup_periodic_license_check(self):
         # Create a timer
