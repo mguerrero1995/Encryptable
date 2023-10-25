@@ -59,8 +59,6 @@ LOCAL_DB_CONN = config_data["resources"]["database_name"]
 
 GC_CLIENT_ID = config_data["google_cloud_api"]["client_id"]
 
-IS_PRO_USER = bool(config_data["application"]["is_pro_version"])
-
 SIGNATURE = b'ENCRYPTABLE_APP'  # Your unique file signature, converted to bytes
 HEADER_ADDITIONAL_LENGTH = 5 # The length of the additional header information, in bytes
 
@@ -224,7 +222,7 @@ def perform_server_side_license_check(email):
         for row in values:
             # Assuming the email is the first element and the is_pro_user flag is the sixth element in the row
             if row[0] == email:
-                is_pro_user = int(row[5])  # Column "F" (0-indexed)
+                is_pro_user = row[5]  # Column "F" (0-indexed)
                 return bool(is_pro_user)  # Convert 1/0 from spreadsheet to True/False
 
         # If we reach this point, the user"s email was not found
@@ -793,12 +791,6 @@ class EncyrptionUI(QWidget):
             formatted_paths = ",".join(f'"{path}"' for path in files) # Return files as a list in `"FileName1.ext","FileName2.ext",...` format
             self.file_path_input.setText(formatted_paths)
 
-    def prompt_directory_encryption(self, directory_path):
-        response = QMessageBox.warning(self, 
-                                    "Directory Encryption Confirmation", 
-                                    f"You are about to encrypt the contents of the directory `{os.path.normpath(directory_path)}`. Continue?",
-                                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-        return response
 
     def encrypt_clicked(self):
         file_path = self.file_path_input.text()
@@ -808,11 +800,6 @@ class EncyrptionUI(QWidget):
         if not fls:
             show_message("Error", "Please enter a valid file path.")
             return
-        
-        if not self.app_instance.is_current_user_pro and len(fls) > 1:
-            QMessageBox.warning(self, "Pro Feature", "Batch processing is only available for Pro users. If you'd like to encrypt multiple files at once, " 
-                                                    "please purchase a Pro license on our website (https://encryptable.app).")
-            return  # Skip the rest of the method
         
         password = None  # Initialize the password variable
 
@@ -862,6 +849,14 @@ class EncyrptionUI(QWidget):
         except Exception as e:
             show_message("Error", str(e))
 
+        
+    def prompt_directory_encryption(self, directory_path):
+        response = QMessageBox.warning(self, 
+                                    "Directory Encryption Confirmation", 
+                                    f"You are about to encrypt the contents of the directory `{os.path.normpath(directory_path)}`. Continue?",
+                                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        return response
+
     def decrypt_clicked(self):
         file_path = self.file_path_input.text()
         fls = self.extract_file_paths(file_path) 
@@ -870,11 +865,6 @@ class EncyrptionUI(QWidget):
         if not fls:
             show_message("Error", "Please enter a file path.")
             return
-        
-        if not self.app_instance.is_current_user_pro and len(fls) > 1:
-            QMessageBox.warning(self, "Pro Feature", "Batch processing is only available for Pro users. If you'd like to decrypt multiple files at once, " 
-                                                    "please purchase a Pro license on our website (https://encryptable.app).")
-            return  # Skip the rest of the method
                 
         password = None  # Initialize the password variable
 
@@ -926,7 +916,7 @@ class App(QMainWindow):
         self.current_user_id = None
         self.current_user_email = None
         self.current_user_password_hash = None
-        self.is_current_user_pro = IS_PRO_USER
+        self.is_current_user_pro = False
         self.initUI()
 
     def initUI(self):
@@ -965,7 +955,7 @@ class App(QMainWindow):
         self.account_menu.addAction(self.print_user_action)
 
         # Add 'Account' menu to the menu bar
-        # self.menu_bar.addMenu(self.account_menu)
+        self.menu_bar.addMenu(self.account_menu)
 
         self.resize(600, 750)
 
@@ -977,7 +967,7 @@ class App(QMainWindow):
         self.show()
     
 
-        # self.setup_periodic_license_check() # Initiate a check every 15 minutes to see if a signed in user has a valid license
+        self.setup_periodic_license_check() # Initiate a check every 15 minutes to see if a signed in user has a valid license
 
     def setup_periodic_license_check(self):
         # Create a timer
@@ -991,7 +981,7 @@ class App(QMainWindow):
 
     def check_user_license(self):
         # Only perform the check if the user is currently marked as premium
-        if self.is_current_user_pro:
+        if self.is_premium_user:
             # Execute the function to check the license status from the server
             is_valid = perform_server_side_license_check()
             if is_valid:
@@ -1035,7 +1025,7 @@ class App(QMainWindow):
     def print_user(self):
         # show_message("Current User", f"Current user is {self.current_user_id}.")
         # show_message("DB Name", config_data["google_cloud_api"])
-        print(self.is_current_user_pro)
+        print(self.is_current_user_pro, self.current_user_email, self.current_user_password_hash)
         # print(self.title, self.current_user_email, self.current_user_password_hash)
         return
     
