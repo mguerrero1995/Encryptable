@@ -168,7 +168,31 @@ def decrypt_file(file_path, password, email):
                 show_message("Error", str(e))
     except: 
         raise ValueError(f"Decryption failed for {file_path} due to an incorrect password.") 
+
+def get_all_files_recursive(directory, encrypted=False):
+    """
+    Recursively get all files in a directory and its subdirectories.
     
+    Parameters:
+    - directory (str): The directory to start the search from.
+    - encrypted (bool): If True, only return files with the ".cyph" extension (encrypted files).
+                       If False, return all files except those with the ".cyph" extension.
+    
+    Returns:
+    - List of file paths.
+    """
+    file_list = []
+    
+    for root, dirs, files in os.walk(directory):
+        for file in files:
+            filepath = os.path.join(root, file)
+            if encrypted and filepath.endswith(".cyph"):
+                file_list.append(filepath)
+            elif not encrypted and not filepath.endswith(".cyph"):
+                file_list.append(filepath)
+                
+    return file_list
+
 def hash_login_password(password: str) -> bytes:
     salt = bcrypt.gensalt()
     hashed = bcrypt.hashpw(password.encode("utf-8"), salt)
@@ -796,13 +820,13 @@ class EncyrptionUI(QWidget):
     def prompt_directory_encryption(self, directory_path):
         response = QMessageBox.warning(self, 
                                     "Directory Encryption Confirmation", 
-                                    f"You are about to encrypt the contents of the directory `{os.path.normpath(directory_path)}`. Continue?",
+                                    f"You are about to encrypt the contents of the directory `{os.path.normpath(directory_path)}` and any subdirectories within. Continue?",
                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         return response
 
     def encrypt_clicked(self):
         file_path = self.file_path_input.text()
-        fls = self.extract_file_paths(file_path) # Use extract_file_paths method in case there are multiple files selected
+        fls = self.extract_file_paths(file_path)
         retain_target_file = self.retain_target_file.isChecked()
 
         if not fls:
@@ -812,9 +836,9 @@ class EncyrptionUI(QWidget):
         if not self.app_instance.is_current_user_pro and len(fls) > 1:
             QMessageBox.warning(self, "Pro Feature", "Batch processing is only available for Pro users. If you'd like to encrypt multiple files at once, " 
                                                     "please purchase a Pro license on our website (https://encryptable.app).")
-            return  # Skip the rest of the method
+            return
         
-        password = None  # Initialize the password variable
+        password = None
 
         password_dialog = PasswordDialog("Encrypt", self)
         result = password_dialog.exec()
@@ -824,47 +848,38 @@ class EncyrptionUI(QWidget):
         if not password:
             return
         
-        files_encrypted = False  # Initialize the flag to False at the start
+        files_encrypted = False
 
         try:
             for path in fls:
-                # If the path is a directory, get all the files in it (skip ".cyph" file because they are already encrypted)
                 if os.path.isdir(path):
                     response = self.prompt_directory_encryption(path)
-                    if response == QMessageBox.StandardButton.No:  # If the user chooses to skip the directory
+                    if response == QMessageBox.StandardButton.No:
                         show_message("Directory Skipped", f"Skipped encryption for `{path}`.")
                         continue
 
-                    files_in_directory = [os.path.join(path, file) for file in os.listdir(path) if os.path.isfile(os.path.join(path, file)) and os.path.splitext(file)[1] != ".cyph"]
-                    if not files_in_directory:
-                        show_message("Message", f"There are no unencrypted files in `{os.path.normpath(path)}` or the folder is empty.")
-                        continue
-
+                    # Use the recursive function to get all files in the directory and its subdirectories
+                    files_in_directory = get_all_files_recursive(path, encrypted=False)
                     for file in files_in_directory:
                         encrypt_file(file, password, self.app_instance.current_user_id)
                         if not retain_target_file:
                             os.remove(file)
-                        files_encrypted = True  # Set the flag to True since a file was encrypted
-                    continue  # Skip the subsequent code and move to the next item in fls
+                        files_encrypted = True
+                else:
+                    encrypt_file(path, password, self.app_instance.current_user_id)
+                    if not retain_target_file:
+                        os.remove(path)
+                    files_encrypted = True
 
-                # Process individual files
-                encrypt_file(path, password, self.app_instance.current_user_id)
-
-                if not retain_target_file:
-                    os.remove(path)
-
-                files_encrypted = True  # Set the flag to True since a file was encrypted
-
-            if files_encrypted:  # Only display the success message if the flag is True
+            if files_encrypted:
                 show_message("Success", "All files have been successfully encrypted.")
-            
             self.file_path_input.clear()
         except Exception as e:
             show_message("Error", str(e))
 
     def decrypt_clicked(self):
         file_path = self.file_path_input.text()
-        fls = self.extract_file_paths(file_path) 
+        fls = self.extract_file_paths(file_path)
         retain_target_file = self.retain_target_file.isChecked()
 
         if not fls:
@@ -874,45 +889,38 @@ class EncyrptionUI(QWidget):
         if not self.app_instance.is_current_user_pro and len(fls) > 1:
             QMessageBox.warning(self, "Pro Feature", "Batch processing is only available for Pro users. If you'd like to decrypt multiple files at once, " 
                                                     "please purchase a Pro license on our website (https://encryptable.app).")
-            return  # Skip the rest of the method
-                
-        password = None  # Initialize the password variable
+            return
+        
+        password = None
 
         password_dialog = PasswordDialog("Decrypt", self)
         result = password_dialog.exec()
         if result == QDialog.DialogCode.Accepted:
             password = password_dialog.get_dialog_password()
-
+        
         if not password:
             return
         
-        files_decrypted = False  # Initialize the flag to False at the start
+        files_decrypted = False
 
         try:
             for path in fls:
-                # If the path is a directory, get all the  ".cyph" (i.e. encrypted) files in it
                 if os.path.isdir(path):
-                    files_in_directory = [os.path.join(path, file) for file in os.listdir(path) if os.path.isfile(os.path.join(path, file)) and os.path.splitext(file)[1] == ".cyph"]
-                    if not files_in_directory:
-                        show_message("Message", f"There are no encrypted files in `{os.path.normpath(path)}` or the folder is empty.")
-                        continue
+                    # Use the recursive function to get all encrypted files in the directory and its subdirectories
+                    files_in_directory = get_all_files_recursive(path, encrypted=True)
                     for file in files_in_directory:
                         decrypt_file(file, password, self.app_instance.current_user_id)
                         if not retain_target_file:
                             os.remove(file)
-                        files_decrypted = True  # Set the flag to True since a file was encrypted
-                    continue  # Skip the subsequent code and move to the next item in fls
-                
-                decrypt_file(path, password, self.app_instance.current_user_id)
-                
-                if not retain_target_file:
-                    os.remove(path)
+                        files_decrypted = True
+                else:
+                    decrypt_file(path, password, self.app_instance.current_user_id)
+                    if not retain_target_file:
+                        os.remove(path)
+                    files_decrypted = True
 
-                files_decrypted = True  # Set the flag to True since a file was encrypted
-
-            if files_decrypted:  # Only display the success message if the flag is True
+            if files_decrypted:
                 show_message("Success", "All files have been successfully decrypted.")
-            
             self.file_path_input.clear()
         except Exception as e:
             show_message("Error", str(e))
