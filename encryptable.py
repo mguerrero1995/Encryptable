@@ -701,7 +701,7 @@ class DropZone(QLabel):
 
 class EncyrptionUI(QWidget):
     # Define a size limit, e.g., 100MB
-    SIZE_LIMIT = 100 * 1024 * 1024  # 100MB in bytes
+    JOB_SIZE_LIMIT = 100 * 1024 * 1024  # 100MB in bytes
 
     def __init__(self, parent, app_instance):
         super().__init__(parent)
@@ -873,10 +873,11 @@ class EncyrptionUI(QWidget):
         # Check the size of the encryption job. If it is more than 100MB, prompt the user to continue.
         total_size = self.get_job_size(fls, encrypted=False)
         
-        if total_size > self.SIZE_LIMIT:
+        if total_size > self.JOB_SIZE_LIMIT:
+            # Warn the user
             response = QMessageBox.warning(self, 
                                         "Large Job Warning", 
-                                        "The file(s) you're about to process are quite large and could result in temporary loss of performance. Do you wish to continue?",
+                                        f"The file(s) you're about to process are quite large ({int(total_size / (1024 * 1024))}MB) and could result in temporary loss of performance. Do you wish to continue?",
                                         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
             if response != QMessageBox.StandardButton.Yes:
                 return  # Abort the operation
@@ -938,7 +939,7 @@ class EncyrptionUI(QWidget):
         # Check the size of the encryption job. If it is more than 100MB, prompt the user to continue.
         total_size = self.get_job_size(fls, encrypted=False)
         
-        if total_size > self.SIZE_LIMIT:
+        if total_size > self.JOB_SIZE_LIMIT:
             response = QMessageBox.warning(self, 
                                         "Large Job Warning", 
                                         "The file(s) you're about to process are quite large and could result in temporary loss of performance. Do you wish to continue?",
