@@ -22,7 +22,7 @@ from PyQt6.QtGui import QAction, QIcon, QPixmap
 from PyQt6.QtWidgets import (QApplication, QCheckBox, QDialog, QFileDialog,
                              QFormLayout, QFrame, QHBoxLayout, QLabel,
                              QLineEdit, QMainWindow, QMenu, QMessageBox,
-                             QPushButton, QVBoxLayout, QWidget)
+                             QPushButton, QVBoxLayout, QWidget, QProgressBar)
 
 
 def load_config(config_path, encryption_key):
@@ -169,7 +169,7 @@ def decrypt_file(file_path, password, email):
     except: 
         raise ValueError(f"Decryption failed for {file_path} due to an incorrect password.") 
 
-def get_all_files_recursive(directory, encrypted=False):
+def get_all_files_recursive(directory, encrypted=False, return_count=False):
     """
     Recursively get all files in a directory and its subdirectories.
     
@@ -179,7 +179,7 @@ def get_all_files_recursive(directory, encrypted=False):
                        If False, return all files except those with the ".cyph" extension.
     
     Returns:
-    - List of file paths.
+    - List of file paths by default. Count of files if return_count=True.
     """
     file_list = []
     
@@ -190,7 +190,8 @@ def get_all_files_recursive(directory, encrypted=False):
                 file_list.append(filepath)
             elif not encrypted and not filepath.endswith(".cyph"):
                 file_list.append(filepath)
-                
+    if return_count:
+        return len(file_list)
     return file_list
 
 def hash_login_password(password: str) -> bytes:
@@ -677,28 +678,6 @@ class SignInDialog(QDialog):
             show_message("Error", str(e)) 
 
 
-class DropZone(QLabel):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setAcceptDrops(True)
-        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.setFrameStyle(QFrame.Shape.Box | QFrame.Shadow.Sunken)
-        self.setStyleSheet("background-color: #E0E0E0;")
-        # self.setFixedHeight(50)
-        self.setText("Drop File(s) Here")
-
-    def dragEnterEvent(self, event):
-        mime_data = event.mimeData()
-        if mime_data.hasUrls():  # Allow multiple files
-            event.acceptProposedAction()
-
-    def dropEvent(self, event):
-        mime_data = event.mimeData()
-        file_paths = [url.toLocalFile() for url in mime_data.urls()]  # Get all file paths
-        formatted_paths = ",".join(f'"{path}"' for path in file_paths)  # Format paths
-        self.parent().file_path_input.setText(formatted_paths)  # Update the QLineEdit with the formatted file paths
-
-
 class EncyrptionUI(QWidget):
     # Define a size limit, e.g., 100MB
     JOB_SIZE_LIMIT = 100 * 1024 * 1024  # 100MB in bytes
@@ -894,6 +873,13 @@ class EncyrptionUI(QWidget):
         
         files_encrypted = False
 
+        # Get a count of files in the job and initialize the progress bar
+        file_count = len([fl for fl in fls if os.path.isfile(fl)]) + sum([get_all_files_recursive(fl, encrypted=False, return_count=True) for fl in fls if os.path.isdir(fl)])
+        progress = ProgressBarDialog(total_files=file_count)
+        progress.show()
+
+        files_proccessed_count = 0
+
         try:
             for path in fls:
                 if os.path.isdir(path):
@@ -903,14 +889,20 @@ class EncyrptionUI(QWidget):
                         continue
 
                     # Use the recursive function to get all files in the directory and its subdirectories
-                    files_in_directory = get_all_files_recursive(path, encrypted=False)
+                    files_in_directory = get_all_files_recursive(path, encrypted=False, return_count=False)
                     for file in files_in_directory:
                         encrypt_file(file, password, self.app_instance.current_user_id)
+                        files_proccessed_count += 1
+                        if files_proccessed_count % 30 == 0 or file_count == files_proccessed_count:
+                            progress.update_progress(file, files_proccessed_count)
                         if not retain_target_file:
                             os.remove(file)
                         files_encrypted = True
                 else:
                     encrypt_file(path, password, self.app_instance.current_user_id)
+                    files_proccessed_count += 1
+                    if files_proccessed_count % 10 == 0 or file_count == files_proccessed_count:
+                        progress.update_progress(file, files_proccessed_count)
                     if not retain_target_file:
                         os.remove(path)
                     files_encrypted = True
@@ -918,8 +910,11 @@ class EncyrptionUI(QWidget):
             if files_encrypted:
                 show_message("Success", "All files have been successfully encrypted.")
             self.file_path_input.clear()
+
+            progress.close()
         except Exception as e:
             show_message("Error", str(e))
+            progress.close()
 
     def decrypt_clicked(self):
         file_path = self.file_path_input.text()
@@ -959,18 +954,31 @@ class EncyrptionUI(QWidget):
         
         files_decrypted = False
 
+        # Get a count of files in the job and initialize the progress bar
+        file_count = len([fl for fl in fls if os.path.isfile(fl)]) + sum([get_all_files_recursive(fl, encrypted=True, return_count=True) for fl in fls if os.path.isdir(fl)])
+        progress = ProgressBarDialog(total_files=file_count)
+        progress.show()
+
+        files_proccessed_count = 0
+
         try:
             for path in fls:
                 if os.path.isdir(path):
                     # Use the recursive function to get all encrypted files in the directory and its subdirectories
-                    files_in_directory = get_all_files_recursive(path, encrypted=True)
+                    files_in_directory = get_all_files_recursive(path, encrypted=True, return_count=False)
                     for file in files_in_directory:
                         decrypt_file(file, password, self.app_instance.current_user_id)
+                        files_proccessed_count += 1
+                        if files_proccessed_count % 10 == 0 or file_count == files_proccessed_count:
+                            progress.update_progress(file, files_proccessed_count)
                         if not retain_target_file:
                             os.remove(file)
                         files_decrypted = True
                 else:
                     decrypt_file(path, password, self.app_instance.current_user_id)
+                    files_proccessed_count += 1
+                    if files_proccessed_count % 10 == 0 or file_count == files_proccessed_count:
+                        progress.update_progress(file, files_proccessed_count)
                     if not retain_target_file:
                         os.remove(path)
                     files_decrypted = True
@@ -978,8 +986,84 @@ class EncyrptionUI(QWidget):
             if files_decrypted:
                 show_message("Success", "All files have been successfully decrypted.")
             self.file_path_input.clear()
+            progress.close()
         except Exception as e:
             show_message("Error", str(e))
+            progress.close()
+
+
+class DropZone(QLabel):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAcceptDrops(True)
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.setFrameStyle(QFrame.Shape.Box | QFrame.Shadow.Sunken)
+        self.setStyleSheet("background-color: #E0E0E0;")
+        # self.setFixedHeight(50)
+        self.setText("Drop File(s) Here")
+
+    def dragEnterEvent(self, event):
+        mime_data = event.mimeData()
+        if mime_data.hasUrls():  # Allow multiple files
+            event.acceptProposedAction()
+
+    def dropEvent(self, event):
+        mime_data = event.mimeData()
+        file_paths = [url.toLocalFile() for url in mime_data.urls()]  # Get all file paths
+        formatted_paths = ",".join(f'"{path}"' for path in file_paths)  # Format paths
+        self.parent().file_path_input.setText(formatted_paths)  # Update the QLineEdit with the formatted file paths
+
+
+class ProgressBarDialog:
+    def __init__(self, total_files):
+        self.dialog = QDialog()
+        self.progress_bar = QProgressBar()
+        self.current_file_label = QLabel()
+        
+        # Initialize the total files and current file index
+        self.total_files = total_files
+        self.current_file_index = 0
+        
+        self.init_ui()
+
+    def init_ui(self):
+        # Set up the UI components for the dialog
+
+        # Setting up the progress bar's range
+        self.progress_bar.setMinimum(0)
+        self.progress_bar.setMaximum(self.total_files)
+
+        # Setting up the layout
+        layout = QVBoxLayout()
+        layout.addWidget(self.current_file_label)
+        layout.addWidget(self.progress_bar)
+        
+        # Setting the dialog's layout
+        self.dialog.setLayout(layout)
+        self.dialog.setWindowTitle("Processing Files...")
+
+    def update_progress(self, file_name, files_processed):
+        """
+        Update the progress bar and label with the current file being processed.
+        
+        Parameters:
+        - file_name (str): The name of the current file being processed.
+        """
+        self.current_file_index += 1
+        progress_percentage = int((files_processed / self.total_files) * 100)
+        # Update the progress bar with the new percentage
+        self.progress_bar.setValue(progress_percentage)  # Uncomment this for actual PyQt/PySide implementation
+        
+        # Update the label with the current file name
+        self.current_file_label.setText(f"Processing: {file_name}")  # Uncomment this for actual PyQt/PySide implementation
+
+    def show(self):
+        # Show the dialog
+        self.dialog.show()  # Uncomment this for actual PyQt/PySide implementation
+
+    def close(self):
+        # Close the dialog
+        self.dialog.close()  # Uncomment this for actual PyQt/PySide implementation
 
 
 class App(QMainWindow):
@@ -1055,7 +1139,7 @@ class App(QMainWindow):
 
     def check_user_license(self):
         # Only perform the check if the user is currently marked as premium
-        if self.is_premium_user:
+        if self.is_current_user_pro:
             # Execute the function to check the license status from the server
             is_valid = perform_server_side_license_check()
             if is_valid:
