@@ -55,6 +55,8 @@ APP_VERSION_MAJOR = int(APP_VERSION[0]) # First number (int)
 APP_VERSION_MINOR = int(APP_VERSION[2]) # Second number (int)
 APP_VERSION_PATCH = int(APP_VERSION[-1]) # Third (last) number (int)
 
+IS_PRO_USER = bool(config_data["application"]["is_pro_version"])
+
 LOCAL_DB_CONN = config_data["resources"]["database_name"]
 
 GC_CLIENT_ID = config_data["google_cloud_api"]["client_id"]
@@ -698,6 +700,9 @@ class DropZone(QLabel):
 
 
 class EncyrptionUI(QWidget):
+    # Define a size limit, e.g., 100MB
+    JOB_SIZE_LIMIT = 100 * 1024 * 1024  # 100MB in bytes
+
     def __init__(self, parent, app_instance):
         super().__init__(parent)
         self.app_instance = app_instance
@@ -821,7 +826,35 @@ class EncyrptionUI(QWidget):
                                     f"You are about to encrypt the contents of the directory `{os.path.normpath(directory_path)}` and any subdirectories within. Continue?",
                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         return response
-      
+
+    def get_job_size(self, file_list, encrypted=False):
+        """
+        Calculate the total size of all files in the provided list.
+        
+        Parameters:
+        - file_list (list): List of file paths
+        
+        Returns:
+        - int: Total size of all files in bytes
+        """
+        total_size = 0
+        for file_path in file_list:
+            if os.path.isdir(file_path):
+                # If it's a directory, walk through it and its subdirectories
+                for root, _, files in os.walk(file_path):
+                    for file in files:
+                        full_path = os.path.join(root, file)
+                        if not encrypted and not full_path.endswith(".cyph"):
+                            total_size += os.path.getsize(full_path)
+                        elif encrypted and full_path.endswith(".cyph"):
+                            total_size += os.path.getsize(full_path)
+            else:
+                if not encrypted and not file_path.endswith(".cyph"):  
+                    total_size += os.path.getsize(file_path)
+                elif encrypted and file_path.endswith(".cyph"):
+                    total_size += os.path.getsize(file_path)
+        return total_size
+    
     def encrypt_clicked(self):
         file_path = self.file_path_input.text()
         fls = self.extract_file_paths(file_path)
@@ -831,11 +864,24 @@ class EncyrptionUI(QWidget):
             show_message("Error", "Please enter a valid file path.")
             return
         
-        if not self.app_instance.is_current_user_pro and len(fls) > 1:
-            QMessageBox.warning(self, "Pro Feature", "Batch processing is only available for Pro users. If you'd like to encrypt multiple files at once, " 
+        # If a non-Pro user attempts to encrypt/decrypt multiple files or a folder, notify them that this feature is for Pro users only.
+        if not self.app_instance.is_current_user_pro and (len(fls) > 1 or any(os.path.isdir(path) for path in fls)):
+            QMessageBox.warning(self, "Pro Feature", "Batch/folder processing is only available for Pro users. If you'd like to encrypt multiple files at once, " 
                                                     "please purchase a Pro license on our website (https://encryptable.app).")
             return
         
+        # Check the size of the encryption job. If it is more than 100MB, prompt the user to continue.
+        total_size = self.get_job_size(fls, encrypted=False)
+        
+        if total_size > self.JOB_SIZE_LIMIT:
+            # Warn the user
+            response = QMessageBox.warning(self, 
+                                        "Large Job Warning", 
+                                        f"The file(s) you're about to process are quite large ({int(total_size / (1024 * 1024))}MB) and could result in temporary loss of performance. Do you wish to continue?",
+                                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            if response != QMessageBox.StandardButton.Yes:
+                return  # Abort the operation
+
         password = None # Initialize the password variable
 
         password_dialog = PasswordDialog("Encrypt", self)
@@ -884,11 +930,23 @@ class EncyrptionUI(QWidget):
             show_message("Error", "Please enter a file path.")
             return
         
-        if not self.app_instance.is_current_user_pro and len(fls) > 1:
-            QMessageBox.warning(self, "Pro Feature", "Batch processing is only available for Pro users. If you'd like to decrypt multiple files at once, " 
+        # If a non-Pro user attempts to encrypt/decrypt multiple files or a folder, notify them that this feature is for Pro users only.
+        if not self.app_instance.is_current_user_pro and (len(fls) > 1 or any(os.path.isdir(path) for path in fls)):
+            QMessageBox.warning(self, "Pro Feature", "Batch/folder processing is only available for Pro users. If you'd like to decrypt multiple files at once, " 
                                                     "please purchase a Pro license on our website (https://encryptable.app).")
             return
-                       
+
+        # Check the size of the encryption job. If it is more than 100MB, prompt the user to continue.
+        total_size = self.get_job_size(fls, encrypted=False)
+        
+        if total_size > self.JOB_SIZE_LIMIT:
+            response = QMessageBox.warning(self, 
+                                        "Large Job Warning", 
+                                        "The file(s) you're about to process are quite large and could result in temporary loss of performance. Do you wish to continue?",
+                                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            if response != QMessageBox.StandardButton.Yes:
+                return  # Abort the operation
+             
         password = None  # Initialize the password variable
 
         password_dialog = PasswordDialog("Decrypt", self)
@@ -932,7 +990,7 @@ class App(QMainWindow):
         self.current_user_id = None
         self.current_user_email = None
         self.current_user_password_hash = None
-        self.is_current_user_pro = False
+        self.is_current_user_pro = False # IS_PRO_USER
         self.initUI()
 
     def initUI(self):
@@ -1041,7 +1099,7 @@ class App(QMainWindow):
     def print_user(self):
         # show_message("Current User", f"Current user is {self.current_user_id}.")
         # show_message("DB Name", config_data["google_cloud_api"])
-        print(self.is_current_user_pro, self.current_user_email, self.current_user_password_hash)
+        print(f"Pro user status: {self.is_current_user_pro}", config_data["google_cloud_api"]["refresh_token"])
         # print(self.title, self.current_user_email, self.current_user_password_hash)
         return
     
