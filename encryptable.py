@@ -22,8 +22,7 @@ from PyQt6.QtGui import QAction, QIcon, QPixmap
 from PyQt6.QtWidgets import (QApplication, QCheckBox, QDialog, QFileDialog,
                              QFormLayout, QFrame, QHBoxLayout, QLabel,
                              QLineEdit, QMainWindow, QMenu, QMessageBox,
-                             QPushButton, QVBoxLayout, QWidget, QProgressBar)
-
+                             QPushButton, QVBoxLayout, QWidget)
 
 def load_config(config_path, encryption_key):
     try:
@@ -766,6 +765,10 @@ class EncyrptionUI(QWidget):
         self.retain_target_file.setChecked(False)
         self.configurations_layout.addWidget(self.retain_target_file)
 
+        self.recursive_folder_search = QCheckBox("Search Folders Recursively")
+        self.recursive_folder_search.setChecked(False)
+        self.configurations_layout.addWidget(self.recursive_folder_search)
+        
         self.configurations_layout.addStretch()
 
         # Create a container to encapsulate the configurations layout
@@ -800,10 +803,16 @@ class EncyrptionUI(QWidget):
             self.file_path_input.setText(formatted_paths)
 
     def prompt_directory_encryption(self, directory_path):
-        response = QMessageBox.warning(self, 
-                                    "Directory Encryption Confirmation", 
-                                    f"You are about to encrypt the contents of the directory `{os.path.normpath(directory_path)}` and any subdirectories within. Continue?",
-                                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if self.recursive_folder_search.isChecked():
+            response = QMessageBox.warning(self, 
+                                        "Directory Encryption Confirmation", 
+                                        f"You are about to encrypt the file contents of the directory `{os.path.normpath(directory_path)}` and any subdirectories within. Continue?",
+                                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        else:    
+            response = QMessageBox.warning(self, 
+                                            "Directory Encryption Confirmation", 
+                                            f"You are about to encrypt the file contents of the directory `{os.path.normpath(directory_path)}`. Continue?",
+                                            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         return response
 
     def get_job_size(self, file_list, encrypted=False):
@@ -871,15 +880,8 @@ class EncyrptionUI(QWidget):
         if not password:
             return
         
-        files_encrypted = False
-
-        # Get a count of files in the job and initialize the progress bar
-        file_count = len([fl for fl in fls if os.path.isfile(fl)]) + sum([get_all_files_recursive(fl, encrypted=False, return_count=True) for fl in fls if os.path.isdir(fl)])
-        progress = ProgressBarDialog(total_files=file_count)
-        progress.show()
-
-        files_proccessed_count = 0
-
+        files_encrypted = False      
+        
         try:
             for path in fls:
                 if os.path.isdir(path):
@@ -892,17 +894,11 @@ class EncyrptionUI(QWidget):
                     files_in_directory = get_all_files_recursive(path, encrypted=False, return_count=False)
                     for file in files_in_directory:
                         encrypt_file(file, password, self.app_instance.current_user_id)
-                        files_proccessed_count += 1
-                        if files_proccessed_count % 30 == 0 or file_count == files_proccessed_count:
-                            progress.update_progress(file, files_proccessed_count)
                         if not retain_target_file:
                             os.remove(file)
                         files_encrypted = True
                 else:
                     encrypt_file(path, password, self.app_instance.current_user_id)
-                    files_proccessed_count += 1
-                    if files_proccessed_count % 10 == 0 or file_count == files_proccessed_count:
-                        progress.update_progress(file, files_proccessed_count)
                     if not retain_target_file:
                         os.remove(path)
                     files_encrypted = True
@@ -911,10 +907,8 @@ class EncyrptionUI(QWidget):
                 show_message("Success", "All files have been successfully encrypted.")
             self.file_path_input.clear()
 
-            progress.close()
         except Exception as e:
             show_message("Error", str(e))
-            progress.close()
 
     def decrypt_clicked(self):
         file_path = self.file_path_input.text()
@@ -952,14 +946,7 @@ class EncyrptionUI(QWidget):
         if not password:
             return
         
-        files_decrypted = False
-
-        # Get a count of files in the job and initialize the progress bar
-        file_count = len([fl for fl in fls if os.path.isfile(fl)]) + sum([get_all_files_recursive(fl, encrypted=True, return_count=True) for fl in fls if os.path.isdir(fl)])
-        progress = ProgressBarDialog(total_files=file_count)
-        progress.show()
-
-        files_proccessed_count = 0
+        files_decrypted = False     
 
         try:
             for path in fls:
@@ -968,17 +955,11 @@ class EncyrptionUI(QWidget):
                     files_in_directory = get_all_files_recursive(path, encrypted=True, return_count=False)
                     for file in files_in_directory:
                         decrypt_file(file, password, self.app_instance.current_user_id)
-                        files_proccessed_count += 1
-                        if files_proccessed_count % 10 == 0 or file_count == files_proccessed_count:
-                            progress.update_progress(file, files_proccessed_count)
                         if not retain_target_file:
                             os.remove(file)
                         files_decrypted = True
                 else:
                     decrypt_file(path, password, self.app_instance.current_user_id)
-                    files_proccessed_count += 1
-                    if files_proccessed_count % 10 == 0 or file_count == files_proccessed_count:
-                        progress.update_progress(file, files_proccessed_count)
                     if not retain_target_file:
                         os.remove(path)
                     files_decrypted = True
@@ -986,10 +967,8 @@ class EncyrptionUI(QWidget):
             if files_decrypted:
                 show_message("Success", "All files have been successfully decrypted.")
             self.file_path_input.clear()
-            progress.close()
         except Exception as e:
             show_message("Error", str(e))
-            progress.close()
 
 
 class DropZone(QLabel):
@@ -1014,58 +993,6 @@ class DropZone(QLabel):
         self.parent().file_path_input.setText(formatted_paths)  # Update the QLineEdit with the formatted file paths
 
 
-class ProgressBarDialog:
-    def __init__(self, total_files):
-        self.dialog = QDialog()
-        self.progress_bar = QProgressBar()
-        self.current_file_label = QLabel()
-        
-        # Initialize the total files and current file index
-        self.total_files = total_files
-        self.current_file_index = 0
-        
-        self.init_ui()
-
-    def init_ui(self):
-        # Set up the UI components for the dialog
-
-        # Setting up the progress bar's range
-        self.progress_bar.setMinimum(0)
-        self.progress_bar.setMaximum(self.total_files)
-
-        # Setting up the layout
-        layout = QVBoxLayout()
-        layout.addWidget(self.current_file_label)
-        layout.addWidget(self.progress_bar)
-        
-        # Setting the dialog's layout
-        self.dialog.setLayout(layout)
-        self.dialog.setWindowTitle("Processing Files...")
-
-    def update_progress(self, file_name, files_processed):
-        """
-        Update the progress bar and label with the current file being processed.
-        
-        Parameters:
-        - file_name (str): The name of the current file being processed.
-        """
-        self.current_file_index += 1
-        progress_percentage = int((files_processed / self.total_files) * 100)
-        # Update the progress bar with the new percentage
-        self.progress_bar.setValue(progress_percentage)  # Uncomment this for actual PyQt/PySide implementation
-        
-        # Update the label with the current file name
-        self.current_file_label.setText(f"Processing: {file_name}")  # Uncomment this for actual PyQt/PySide implementation
-
-    def show(self):
-        # Show the dialog
-        self.dialog.show()  # Uncomment this for actual PyQt/PySide implementation
-
-    def close(self):
-        # Close the dialog
-        self.dialog.close()  # Uncomment this for actual PyQt/PySide implementation
-
-
 class App(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -1074,7 +1001,7 @@ class App(QMainWindow):
         self.current_user_id = None
         self.current_user_email = None
         self.current_user_password_hash = None
-        self.is_current_user_pro = False # IS_PRO_USER
+        self.is_current_user_pro = IS_PRO_USER
         self.initUI()
 
     def initUI(self):
