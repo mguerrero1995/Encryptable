@@ -826,7 +826,7 @@ class EncyrptionUI(QWidget):
     # This function allows for parsing of multiple file paths during encryption/decryption
     def extract_file_paths(formatted_paths): # File paths should be inputted as `"FileName1.ext","FileName2.ext",...`
         unique_paths = re.findall(r'"(.*?)"', formatted_paths) # Returns a list of individual file names
-        return [Path(p).absolute() for p in unique_paths]
+        return [str(Path(p).absolute()) for p in unique_paths]
 
     def browse_file(self):
         files, _ = QFileDialog.getOpenFileNames(self, "Browse", "", "All Files (*);") # Default file type directory to all files
@@ -937,6 +937,12 @@ class EncyrptionUI(QWidget):
                             os.remove(file)
                         files_encrypted = True
                 else:
+                    if self.advanced_config_states["encrypt_file_types"] and os.path.splitext(path)[1] not in self.advanced_config_states["encrypt_file_types"]:
+                        show_message("Missing Target File Type", f"{path} is not one of the specified target file types. Please check configurations.")
+                        continue
+                    if self.advanced_config_states["ignore_file_types"] and os.path.splitext(path)[1] in self.advanced_config_states["ignore_file_types"]:
+                        show_message("File Ignored", f"{path} is an ignored file type. Please check configurations.")
+                        continue
                     encrypt_file(path, password, self.app_instance.current_user_id)
                     if not self.retain_target_file.isChecked():
                         os.remove(path)
@@ -944,13 +950,12 @@ class EncyrptionUI(QWidget):
 
             if files_encrypted:
                 show_message("Success", "All files have been successfully encrypted.")
-            
-            # Reset the UI
-            self.file_path_input.clear()
-            self.retain_target_file.setChecked(False)
-            self.recursive_folder_search.setChecked(False)
-            self.advanced_config_states["ignore_file_types"] = None
-            self.advanced_config_states["encrypt_file_types"] = None
+                # Reset the UI
+                self.file_path_input.clear()
+                self.retain_target_file.setChecked(False)
+                self.recursive_folder_search.setChecked(False)
+                self.advanced_config_states["ignore_file_types"] = None
+                self.advanced_config_states["encrypt_file_types"] = None       
         except Exception as e:
             show_message("Error", str(e))
 
@@ -1010,13 +1015,12 @@ class EncyrptionUI(QWidget):
 
             if files_decrypted:
                 show_message("Success", "All files have been successfully decrypted.")
-
-            # Reset the UI
-            self.file_path_input.clear()
-            self.retain_target_file.setChecked(False)
-            self.recursive_folder_search.setChecked(False)
-            self.advanced_config_states["ignore_file_types"] = None
-            self.advanced_config_states["encrypt_file_types"] = None
+                # Reset the UI
+                self.file_path_input.clear()
+                self.retain_target_file.setChecked(False)
+                self.recursive_folder_search.setChecked(False)
+                self.advanced_config_states["ignore_file_types"] = None
+                self.advanced_config_states["encrypt_file_types"] = None
         except Exception as e:
             show_message("Error", str(e))
 
