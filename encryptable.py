@@ -909,7 +909,7 @@ class EncyrptionUI(QWidget):
         
         if not password:
             return
-        
+
         files_encrypted = False      
         
         try:
@@ -922,7 +922,15 @@ class EncyrptionUI(QWidget):
 
                     # Use the recursive function to get all files in the directory and its subdirectories, if option is selected
                     files_in_directory = get_all_files_recursive(path, encrypted=False, get_subdirs=self.recursive_folder_search.isChecked(), return_count=False)
-
+                    # Remove any files not included in the "Only Encrypt File Types" advanced config list
+                    if self.advanced_config_states["encrypt_file_types"]:
+                        files_in_directory = [f for f in files_in_directory if os.path.splitext(f)[1] in self.advanced_config_states["encrypt_file_types"]]
+                    # Remove any files that are included in the "Ignore File Types" advanced config list (if specific file types specified for encryption, no need to check for ignored types)
+                    if not self.advanced_config_states["encrypt_file_types"] and self.advanced_config_states["ignore_file_types"]:
+                        files_in_directory = [f for f in files_in_directory if os.path.splitext(f)[1] not in self.advanced_config_states["ignore_file_types"]] 
+                    if len(files_in_directory) == 0:
+                        show_message("No Files Found", "No files matching specified file types were encrypted. Please check configurations.")
+                        continue
                     for file in files_in_directory:
                         encrypt_file(file, password, self.app_instance.current_user_id)
                         if not self.retain_target_file.isChecked():
@@ -936,8 +944,13 @@ class EncyrptionUI(QWidget):
 
             if files_encrypted:
                 show_message("Success", "All files have been successfully encrypted.")
+            
+            # Reset the UI
             self.file_path_input.clear()
-
+            self.retain_target_file.setChecked(False)
+            self.recursive_folder_search.setChecked(False)
+            self.advanced_config_states["ignore_file_types"] = None
+            self.advanced_config_states["encrypt_file_types"] = None
         except Exception as e:
             show_message("Error", str(e))
 
@@ -997,7 +1010,13 @@ class EncyrptionUI(QWidget):
 
             if files_decrypted:
                 show_message("Success", "All files have been successfully decrypted.")
+
+            # Reset the UI
             self.file_path_input.clear()
+            self.retain_target_file.setChecked(False)
+            self.recursive_folder_search.setChecked(False)
+            self.advanced_config_states["ignore_file_types"] = None
+            self.advanced_config_states["encrypt_file_types"] = None
         except Exception as e:
             show_message("Error", str(e))
 
@@ -1006,14 +1025,17 @@ class EncyrptionUI(QWidget):
             show_message("Pro Feature Only", "Advanced configurations are only available to Pro users. "
                                             "Please purchase a Pro license on our website to access advanced configurations (https://encryptable.app).")
             return
-        self.advanced_dialog = AdvancedConfigurations(self, self)
-        self.advanced_dialog.setWindowTitle("Advanced Configurations")
+        self.advanced_config_dialog = AdvancedConfigurations(self, self)
+        self.advanced_config_dialog.setWindowTitle("Advanced Configurations")
 
         # Initialize configurations or set to current settings
-        self.advanced_dialog.ignore_files.setText(self.advanced_config_states["ignore_file_types"])
-        self.advanced_dialog.include_files.setText(self.advanced_config_states["encrypt_file_types"])
+        if self.advanced_config_states["ignore_file_types"]:
+            self.advanced_config_dialog.ignore_files.setText(",".join(self.advanced_config_states["ignore_file_types"]))
+    
+        if self.advanced_config_states["encrypt_file_types"]:
+            self.advanced_config_dialog.include_files.setText(",".join(self.advanced_config_states["encrypt_file_types"]))
 
-        self.advanced_dialog.exec()
+        self.advanced_config_dialog.exec()
 
 
 class DropZone(QLabel):
@@ -1045,12 +1067,12 @@ class AdvancedConfigurations(QDialog):
 
         self.main_layout = QFormLayout()
 
-        self.ignore_files_label = QLabel("Ignore File Types (During Encrypt Actions Only):")
+        self.ignore_files_label = QLabel("Ignore File Types:")
         self.ignore_files = QLineEdit()
         self.ignore_files.setMaximumWidth(200)
         self.ignore_files.setToolTip("Comma-separated file types if more than one (ex: `.txt, .csv, .jpg`)")
 
-        self.include_files_label = QLabel("Only Encrypt File Types:")
+        self.include_files_label = QLabel("Target File Types:")
         self.include_files = QLineEdit()
         self.include_files.setMaximumWidth(200)
         self.include_files.setToolTip("Comma-separated file types if more than one (ex: `.txt, .csv, .jpg`)")
@@ -1078,7 +1100,6 @@ class AdvancedConfigurations(QDialog):
         # Split the string by comma and strip whitespace
         extensions = [ext.strip() for ext in extension_string.split(",")]
         
-        # Regular expression pattern for file extensions
         # This pattern means: start with a period, followed by one or more word characters (alphanumeric or underscore)
         pattern = re.compile(r'^\.\w+$')
         
@@ -1091,15 +1112,26 @@ class AdvancedConfigurations(QDialog):
         return True
     
     def apply_advanced_configs(self):
+        ignore_files_text = self.ignore_files.text().strip()
+        include_files_text = self.include_files.text().strip()
+
+        ignore_files_list = [ext.strip() for ext in ignore_files_text.split(",")] if ignore_files_text else None
+        include_files_list = [ext.strip() for ext in include_files_text.split(",")] if include_files_text else None
+
+
         if not self.validate_file_extensions(self.ignore_files.text()):
             show_message("Error", "Invalid file extension entered in ignore file types list.")
             return
         if not self.validate_file_extensions(self.include_files.text()):
             show_message("Error", "Invalid file extension entered in encrypt file types list.")
             return
+        if ignore_files_list and include_files_list and set(ignore_files_list).intersection(include_files_list): # Check for extensions entered in both fields
+            show_message("Error", f"{set(ignore_files_list).intersection(include_files_list)} entered in both the ignore and include file type lists.")
+            return
         
-        self.encryption_ui.advanced_config_states["ignore_file_types"] = self.ignore_files.text()
-        self.encryption_ui.advanced_config_states["encrypt_file_types"] = self.include_files.text()
+        self.encryption_ui.advanced_config_states["ignore_file_types"] = ignore_files_list
+        self.encryption_ui.advanced_config_states["encrypt_file_types"] = include_files_list
+
         self.close()
 
 
