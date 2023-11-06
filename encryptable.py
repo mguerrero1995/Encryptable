@@ -697,6 +697,7 @@ class EncyrptionUI(QWidget):
     def __init__(self, parent, app_instance):
         super().__init__(parent)
         self.app_instance = app_instance
+        self.advanced_config_states = {"ignore_file_types": None, "encrypt_file_types": None}
         
         self.layout = QVBoxLayout()
 
@@ -793,6 +794,22 @@ class EncyrptionUI(QWidget):
         self.configurations_container.setLayout(self.configurations_layout)
         
         self.main_layout.addWidget(self.configurations_container)
+
+        # Container for the Advanced Configuration button
+        self.advanced_config_container = QHBoxLayout()
+
+        # Advanced Configuration button
+        self.advanced_config_button = QPushButton("Advanced Configurations", self)
+        self.advanced_config_button.setFixedWidth(150)
+        self.advanced_config_button.clicked.connect(self.open_advanced_configurations)
+
+        self.advanced_config_container.addStretch()
+        self.advanced_config_container.addWidget(self.advanced_config_button)
+        self.advanced_config_container.addStretch()
+        
+        self.main_layout.addLayout(self.advanced_config_container)
+
+        # Center the entire main layout
         self.main_layout.setAlignment(self.configurations_container, Qt.AlignmentFlag.AlignCenter)
 
         # Set fixed spacing between widgets
@@ -801,6 +818,7 @@ class EncyrptionUI(QWidget):
         # Spacer to occupy any additional vertical space
         self.main_layout.addStretch(1)
 
+        # Set the layout for the entire window
         self.setLayout(self.main_layout)
 
 
@@ -983,6 +1001,20 @@ class EncyrptionUI(QWidget):
         except Exception as e:
             show_message("Error", str(e))
 
+    def open_advanced_configurations(self):
+        if not self.app_instance.is_current_user_pro:
+            show_message("Pro Feature Only", "Advanced configurations are only available to Pro users. "
+                                            "Please purchase a Pro license on our website to access advanced configurations (https://encryptable.app).")
+            return
+        self.advanced_dialog = AdvancedConfigurations(self, self)
+        self.advanced_dialog.setWindowTitle("Advanced Configurations")
+
+        # Initialize configurations or set to current settings
+        self.advanced_dialog.ignore_files.setText(self.advanced_config_states["ignore_file_types"])
+        self.advanced_dialog.include_files.setText(self.advanced_config_states["encrypt_file_types"])
+
+        self.advanced_dialog.exec()
+
 
 class DropZone(QLabel):
     def __init__(self, parent=None):
@@ -1005,6 +1037,71 @@ class DropZone(QLabel):
         formatted_paths = ",".join(f'"{path}"' for path in file_paths)  # Format paths
         self.parent().file_path_input.setText(formatted_paths)  # Update the QLineEdit with the formatted file paths
         
+
+class AdvancedConfigurations(QDialog):
+    def __init__(self, parent, encryption_ui):
+        super().__init__(parent)
+        self.encryption_ui = encryption_ui
+
+        self.main_layout = QFormLayout()
+
+        self.ignore_files_label = QLabel("Ignore File Types (During Encrypt Actions Only):")
+        self.ignore_files = QLineEdit()
+        self.ignore_files.setMaximumWidth(200)
+        self.ignore_files.setToolTip("Comma-separated file types if more than one (ex: `.txt, .csv, .jpg`)")
+
+        self.include_files_label = QLabel("Only Encrypt File Types:")
+        self.include_files = QLineEdit()
+        self.include_files.setMaximumWidth(200)
+        self.include_files.setToolTip("Comma-separated file types if more than one (ex: `.txt, .csv, .jpg`)")
+
+        self.main_layout.addRow(self.ignore_files_label, self.ignore_files)
+        self.main_layout.addRow(self.include_files_label, self.include_files)
+
+        # OK and Cancel buttons or similar actions
+        self.return_buttons_layout = QHBoxLayout()
+        self.apply_button = QPushButton("Apply", self)
+        self.apply_button.setMaximumWidth(50)
+        self.apply_button.clicked.connect(self.apply_advanced_configs)
+        self.cancel_button = QPushButton("Cancel", self)
+        self.cancel_button.setMaximumWidth(50)
+        self.cancel_button.clicked.connect(self.reject)
+        self.return_buttons_layout.addWidget(self.apply_button)
+        self.return_buttons_layout.addWidget(self.cancel_button)
+        self.main_layout.addRow(None, self.return_buttons_layout)
+
+        self.setLayout(self.main_layout)
+
+    def validate_file_extensions(self, extension_string):
+        if not extension_string:
+            return True
+        # Split the string by comma and strip whitespace
+        extensions = [ext.strip() for ext in extension_string.split(",")]
+        
+        # Regular expression pattern for file extensions
+        # This pattern means: start with a period, followed by one or more word characters (alphanumeric or underscore)
+        pattern = re.compile(r'^\.\w+$')
+        
+        for ext in extensions:
+            # Check if the extension matches the pattern
+            if not pattern.match(ext):
+                return False
+        
+        # If all extensions are valid
+        return True
+    
+    def apply_advanced_configs(self):
+        if not self.validate_file_extensions(self.ignore_files.text()):
+            show_message("Error", "Invalid file extension entered in ignore file types list.")
+            return
+        if not self.validate_file_extensions(self.include_files.text()):
+            show_message("Error", "Invalid file extension entered in encrypt file types list.")
+            return
+        
+        self.encryption_ui.advanced_config_states["ignore_file_types"] = self.ignore_files.text()
+        self.encryption_ui.advanced_config_states["encrypt_file_types"] = self.include_files.text()
+        self.close()
+
 
 class App(QMainWindow):
     def __init__(self):
@@ -1036,6 +1133,8 @@ class App(QMainWindow):
         self.sign_out_action = QAction("Sign Out", self)
         self.sign_out_action.setEnabled(False) # Disabled by default unless there is a user logged in
         self.print_user_action = QAction("Print User", self)
+        self.set_pro_action = QAction("Set Pro", self)
+        self.set_free_action = QAction("Set Free", self)
 
         # Connect actions to the methods
         self.sign_in_action.triggered.connect(self.sign_in)
@@ -1043,6 +1142,8 @@ class App(QMainWindow):
         self.manage_account_action.triggered.connect(self.manage_account)
         self.sign_out_action.triggered.connect(self.sign_out)
         self.print_user_action.triggered.connect(self.print_user)
+        self.set_pro_action.triggered.connect(self.set_pro)
+        self.set_free_action.triggered.connect(self.set_free)
 
         # Add actions to the 'Account' menu
         self.account_menu.addAction(self.sign_in_action)
@@ -1051,6 +1152,8 @@ class App(QMainWindow):
         self.account_menu.addSeparator()
         self.account_menu.addAction(self.sign_out_action)
         self.account_menu.addAction(self.print_user_action)
+        self.account_menu.addAction(self.set_pro_action)
+        self.account_menu.addAction(self.set_free_action)
 
         # Add 'Account' menu to the menu bar
         self.menu_bar.addMenu(self.account_menu)
@@ -1119,6 +1222,14 @@ class App(QMainWindow):
         self.sign_in_action.setEnabled(True)
         show_message("Signed Out", "You have successfully signed out.")
         return
+
+    def set_pro(self):
+        self.is_current_user_pro = True
+        print(f"Pro Status = {self.is_current_user_pro}")
+
+    def set_free(self):
+        self.is_current_user_pro = False
+        print(f"Pro Status = {self.is_current_user_pro}")
 
     def print_user(self):
         # show_message("Current User", f"Current user is {self.current_user_id}.")
