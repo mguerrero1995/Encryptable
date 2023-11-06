@@ -7,6 +7,7 @@ import sqlite3
 import struct
 import sys
 import time
+from pathlib import Path
 
 import bcrypt
 from cryptography.fernet import Fernet
@@ -168,9 +169,9 @@ def decrypt_file(file_path, password, email):
     except: 
         raise ValueError(f"Decryption failed for {file_path} due to an incorrect password.") 
 
-def get_all_files_recursive(directory, encrypted=False, return_count=False):
+def get_all_files_recursive(directory, encrypted, get_subdirs, return_count=False):
     """
-    Recursively get all files in a directory and its subdirectories.
+    Recursively get all files in a directory and, optionally, its subdirectories.
     
     Parameters:
     - directory (str): The directory to start the search from.
@@ -180,15 +181,25 @@ def get_all_files_recursive(directory, encrypted=False, return_count=False):
     Returns:
     - List of file paths by default. Count of files if return_count=True.
     """
-    file_list = []
     
-    for root, dirs, files in os.walk(directory):
-        for file in files:
-            filepath = os.path.join(root, file)
-            if encrypted and filepath.endswith(".cyph"):
-                file_list.append(filepath)
-            elif not encrypted and not filepath.endswith(".cyph"):
-                file_list.append(filepath)
+    if get_subdirs:
+        file_list = []
+        for root, dirs, files in os.walk(directory):
+            for file in files:
+                filepath = os.path.join(root, file)
+                if encrypted and filepath.endswith(".cyph"):
+                    file_list.append(filepath)
+                elif not encrypted and not filepath.endswith(".cyph"):
+                    file_list.append(filepath)
+        if return_count:
+            return len(file_list)
+        return file_list
+    
+    if encrypted:
+        file_list = [os.path.join(directory, fl) for fl in os.listdir(directory) if os.path.isfile(os.path.join(directory, fl)) and fl.endswith(".cyph")]
+    else:
+        file_list = [os.path.join(directory, fl) for fl in os.listdir(directory) if os.path.isfile(os.path.join(directory, fl)) and not fl.endswith(".cyph")]
+
     if return_count:
         return len(file_list)
     return file_list
@@ -226,6 +237,8 @@ def get_google_credentials():
 
 def perform_server_side_license_check(email):
     try:
+        if email is None:
+            return False
         # Get the Google API credentials and build the service
         credentials = get_google_credentials()
         service = discovery.build("sheets", "v4", credentials=credentials)
@@ -765,7 +778,7 @@ class EncyrptionUI(QWidget):
         self.retain_target_file.setChecked(False)
         self.configurations_layout.addWidget(self.retain_target_file)
 
-        self.recursive_folder_search = QCheckBox("Search Folders Recursively")
+        self.recursive_folder_search = QCheckBox("Search Subfolders")
         self.recursive_folder_search.setChecked(False)
         self.configurations_layout.addWidget(self.recursive_folder_search)
         
@@ -794,7 +807,8 @@ class EncyrptionUI(QWidget):
     @staticmethod
     # This function allows for parsing of multiple file paths during encryption/decryption
     def extract_file_paths(formatted_paths): # File paths should be inputted as `"FileName1.ext","FileName2.ext",...`
-        return re.findall(r'"(.*?)"', formatted_paths) # Returns a list of individual file names
+        unique_paths = re.findall(r'"(.*?)"', formatted_paths) # Returns a list of individual file names
+        return [Path(p).absolute() for p in unique_paths]
 
     def browse_file(self):
         files, _ = QFileDialog.getOpenFileNames(self, "Browse", "", "All Files (*);") # Default file type directory to all files
@@ -846,8 +860,6 @@ class EncyrptionUI(QWidget):
     def encrypt_clicked(self):
         file_path = self.file_path_input.text()
         fls = self.extract_file_paths(file_path)
-        retain_target_file = self.retain_target_file.isChecked()
-
         if not fls:
             show_message("Error", "Please enter a valid file path.")
             return
@@ -890,16 +902,17 @@ class EncyrptionUI(QWidget):
                         show_message("Directory Skipped", f"Skipped encryption for `{path}`.")
                         continue
 
-                    # Use the recursive function to get all files in the directory and its subdirectories
-                    files_in_directory = get_all_files_recursive(path, encrypted=False, return_count=False)
+                    # Use the recursive function to get all files in the directory and its subdirectories, if option is selected
+                    files_in_directory = get_all_files_recursive(path, encrypted=False, get_subdirs=self.recursive_folder_search.isChecked(), return_count=False)
+
                     for file in files_in_directory:
                         encrypt_file(file, password, self.app_instance.current_user_id)
-                        if not retain_target_file:
+                        if not self.retain_target_file.isChecked():
                             os.remove(file)
                         files_encrypted = True
                 else:
                     encrypt_file(path, password, self.app_instance.current_user_id)
-                    if not retain_target_file:
+                    if not self.retain_target_file.isChecked():
                         os.remove(path)
                     files_encrypted = True
 
@@ -913,7 +926,6 @@ class EncyrptionUI(QWidget):
     def decrypt_clicked(self):
         file_path = self.file_path_input.text()
         fls = self.extract_file_paths(file_path)
-        retain_target_file = self.retain_target_file.isChecked()
 
         if not fls:
             show_message("Error", "Please enter a file path.")
@@ -951,16 +963,17 @@ class EncyrptionUI(QWidget):
         try:
             for path in fls:
                 if os.path.isdir(path):
-                    # Use the recursive function to get all encrypted files in the directory and its subdirectories
-                    files_in_directory = get_all_files_recursive(path, encrypted=True, return_count=False)
+                    # Use the recursive function to get all encrypted files in the directory and its subdirectories, if option is selected
+                    files_in_directory = get_all_files_recursive(path, encrypted=True, get_subdirs=self.recursive_folder_search.isChecked(), return_count=False)
+
                     for file in files_in_directory:
                         decrypt_file(file, password, self.app_instance.current_user_id)
-                        if not retain_target_file:
+                        if not self.retain_target_file.isChecked():
                             os.remove(file)
                         files_decrypted = True
                 else:
                     decrypt_file(path, password, self.app_instance.current_user_id)
-                    if not retain_target_file:
+                    if not self.retain_target_file.isChecked():
                         os.remove(path)
                     files_decrypted = True
 
@@ -991,7 +1004,7 @@ class DropZone(QLabel):
         file_paths = [url.toLocalFile() for url in mime_data.urls()]  # Get all file paths
         formatted_paths = ",".join(f'"{path}"' for path in file_paths)  # Format paths
         self.parent().file_path_input.setText(formatted_paths)  # Update the QLineEdit with the formatted file paths
-
+        
 
 class App(QMainWindow):
     def __init__(self):
@@ -1068,7 +1081,7 @@ class App(QMainWindow):
         # Only perform the check if the user is currently marked as premium
         if self.is_current_user_pro:
             # Execute the function to check the license status from the server
-            is_valid = perform_server_side_license_check()
+            is_valid = perform_server_side_license_check(self.current_user_email)
             if is_valid:
                 self.is_current_user_pro = True
 
