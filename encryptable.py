@@ -7,6 +7,8 @@ import sqlite3
 import struct
 import sys
 import time
+import random
+import string
 from pathlib import Path
 
 import bcrypt
@@ -168,6 +170,34 @@ def decrypt_file(file_path, password, email):
                 show_message("Error", str(e))
     except: 
         raise ValueError(f"Decryption failed for {file_path} due to an incorrect password.") 
+
+def shred_file(file_path, passes=3):
+    try:
+        with open(file_path, "rb") as f:
+            data = f.read()
+
+        # Encrypt the file multiple times
+        for pass_count in range(passes):
+            key = os.urandom(32)
+            iv = os.urandom(16)
+            cipher = Cipher(algorithms.AES(key), modes.CFB(iv), backend=default_backend())
+            encryptor = cipher.encryptor()
+            data = encryptor.update(data) + encryptor.finalize() # Encrypt the data
+
+        with open(file_path, "wb") as f:
+            f.write(data)
+        
+        # Randomly rename the file and remove the extension
+        dir_name = os.path.dirname(file_path)
+        new_name = "".join(random.choices(string.ascii_letters + string.digits, k=10))
+        new_file_path = os.path.join(dir_name, new_name)
+        os.rename(file_path, new_file_path)
+        
+        # Normal file deletion process
+        os.remove(new_file_path)
+
+    except Exception as e:
+        raise ValueError(f"Shredding failed for {file_path}. Error: {e}")
 
 def get_all_files_recursive(directory, encrypted, get_subdirs, return_count=False):
     """
@@ -693,13 +723,14 @@ class SignInDialog(QDialog):
 class EncyrptionUI(QWidget):
     # Define a size limit, e.g., 100MB
     JOB_SIZE_LIMIT = 100 * 1024 * 1024  # 100MB in bytes
+    ENCRYPTION_COUNT = 2
 
     def __init__(self, parent, app_instance):
         super().__init__(parent)
         self.app_instance = app_instance
         self.advanced_config_states = {"ignore_file_types": None, "encrypt_file_types": None}
         
-        self.layout = QVBoxLayout()
+        # self.layout = QVBoxLayout()
 
         # Create a main layout
         self.main_layout = QVBoxLayout()
@@ -893,11 +924,11 @@ class EncyrptionUI(QWidget):
         
         if total_size > self.JOB_SIZE_LIMIT:
             # Warn the user
-            response = QMessageBox.warning(self, 
+            encrypt_response = QMessageBox.warning(self, 
                                         "Large Job Warning", 
                                         f"The file(s) you're about to process are quite large ({int(total_size / (1024 * 1024))}MB) and could result in temporary loss of performance. Do you wish to continue?",
                                         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-            if response != QMessageBox.StandardButton.Yes:
+            if encrypt_response != QMessageBox.StandardButton.Yes:
                 return  # Abort the operation
 
         password = None # Initialize the password variable
@@ -915,8 +946,8 @@ class EncyrptionUI(QWidget):
         try:
             for path in fls:
                 if os.path.isdir(path):
-                    response = self.prompt_directory_encryption(path)
-                    if response == QMessageBox.StandardButton.No:
+                    directory_response = self.prompt_directory_encryption(path)
+                    if directory_response == QMessageBox.StandardButton.No:
                         show_message("Directory Skipped", f"Skipped encryption for `{path}`.")
                         continue
 
@@ -1139,6 +1170,168 @@ class AdvancedConfigurations(QDialog):
         self.close()
 
 
+class ShredderUI(QWidget):
+    # Define a size limit, e.g., 100MB
+    JOB_SIZE_LIMIT = 100 * 1024 * 1024  # 100MB in bytes
+
+    def __init__(self, parent, app_instance):
+        super().__init__(parent)
+        self.app_instance = app_instance
+
+        # self.layout = QVBoxLayout()
+
+        self.main_layout = QVBoxLayout()
+
+        # File Path input field and Browse button layout
+
+        # Label
+        self.file_path_label = QLabel("Enter File Path(s) or Drag & Drop File(s):")
+        self.main_layout.addWidget(self.file_path_label)
+        self.main_layout.setAlignment(self.file_path_label, Qt.AlignmentFlag.AlignCenter)
+
+        # File Path input field and Browse button layout
+        path_layout = QHBoxLayout()
+
+        path_layout.addStretch()
+
+        # Input field for the file path
+        self.file_path_input = QLineEdit(self)
+        self.file_path_input.setFixedWidth(400)
+        path_layout.addWidget(self.file_path_input)
+        path_layout.setAlignment(self.file_path_input, Qt.AlignmentFlag.AlignCenter)
+
+        # Browse button
+        self.browse_button = QPushButton("Browse", self)
+        self.browse_button.clicked.connect(self.browse_file)
+        self.browse_button.setFixedWidth(60)
+        path_layout.addWidget(self.browse_button)
+        path_layout.setAlignment(self.browse_button, Qt.AlignmentFlag.AlignCenter)
+
+        # Add a horizontal stretch after the Browse button
+        path_layout.addStretch()
+
+        self.main_layout.addLayout(path_layout)
+
+        self.shredder_drop_zone_layout = QHBoxLayout()
+        self.shredder_drop_zone_layout.addStretch() # Add a stretch before the drop zone so that it stays centered when the window expands
+        self.shredder_drop_zone = DropZone(self)
+        self.shredder_drop_zone.setFixedSize(650, 100)
+        self.shredder_drop_zone_layout.addWidget(self.shredder_drop_zone)
+        self.shredder_drop_zone_layout.addStretch() # Add a stretch after the drop zone so that it stays centered when the window expands
+
+        self.main_layout.addLayout(self.shredder_drop_zone_layout)
+        
+        # Shred button
+        self.shred_button_layout = QHBoxLayout()
+        self.shred_button_layout.addStretch()
+
+        self.shred_button = QPushButton("Shred", self)
+        self.shred_button.setFixedWidth(55)
+        self.shred_button.clicked.connect(self.shred_clicked)
+
+        self.shred_button_layout.addWidget(self.shred_button)
+        self.shred_button_layout.addStretch()
+
+        self.main_layout.addLayout(self.shred_button_layout)
+
+        # Set fixed spacing between widgets
+        self.main_layout.setSpacing(20)
+
+        # Spacer to occupy any additional vertical space
+        self.main_layout.addStretch(1)
+
+        # Set the layout for the entire window
+        self.setLayout(self.main_layout)
+
+
+    @staticmethod
+    # This function allows for parsing of multiple file paths during shredding
+    def extract_file_paths(formatted_paths): # File paths should be inputted as `"FileName1.ext","FileName2.ext",...`
+        unique_paths = re.findall(r'"(.*?)"', formatted_paths) # Returns a list of individual file names
+        return [str(Path(p).absolute()) for p in unique_paths]
+        # Drag and Drop area
+    
+    def browse_file(self):
+        files, _ = QFileDialog.getOpenFileNames(self, "Browse", "", "All Files (*);") # Default file type directory to all files
+        if files:
+            formatted_paths = ",".join(f'"{path}"' for path in files) # Return files as a list in `"FileName1.ext","FileName2.ext",...` format
+            self.file_path_input.setText(formatted_paths)
+
+    def get_job_size(self, file_list):
+        """
+        Calculate the total size of all files in the provided list.
+        
+        Parameters:
+        - file_list (list): List of file paths
+        
+        Returns:
+        - int: Total size of all files in bytes
+        """
+        total_size = 0
+        for file_path in file_list:
+            if os.path.isdir(file_path):
+                # If it's a directory, walk through it and its subdirectories
+                for root, _, files in os.walk(file_path):
+                    for file in files:
+                        full_path = os.path.join(root, file)
+                        total_size += os.path.getsize(full_path)
+            else:
+                total_size += os.path.getsize(file_path)
+        return total_size
+    
+    def shred_clicked(self):
+        file_path = self.file_path_input.text()
+        fls = self.extract_file_paths(file_path)
+        if not fls:
+            show_message("Error", "Please enter a valid file path.")
+            return
+        
+        # If a non-Pro user attempts to shred multiple files or a folder, notify them that this feature is for Pro users only.
+        if not self.app_instance.is_current_user_pro and (len(fls) > 1 or any(os.path.isdir(path) for path in fls)):
+            QMessageBox.warning(self, "Pro Feature", "Batch/folder shredding is only available for Pro users. If you'd like to shred multiple files at once, " 
+                                                    "please purchase a Pro license on our website (https://encryptable.app).")
+            return
+        
+        shred_response = QMessageBox.warning(self, 
+                                "Warning", 
+                                f"You are about to perform a file shredding operation. Shredded files CANNOT be recovered and will result in PERMANENT loss of data. Do you wish to continue?",
+                                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if shred_response != QMessageBox.StandardButton.Yes:
+            return
+        
+        # Check the size of the shredding job. If it is more than 100MB, prompt the user to continue.
+        total_size = self.get_job_size(fls)
+        
+        if total_size > self.JOB_SIZE_LIMIT:
+            # Warn the user
+            job_size_response = QMessageBox.warning(self, 
+                                        "Large Job Warning", 
+                                        f"The file(s) you're about to shred are quite large ({int(total_size / (1024 * 1024))}MB) and could result in temporary loss of performance. Do you wish to continue?",
+                                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            if job_size_response != QMessageBox.StandardButton.Yes:
+                return  # Abort the operation
+            
+        files_shredded = False      
+        
+        try:
+            for path in fls:
+                if os.path.isdir(path):
+                    show_message("Dangerous Activity", "Cannot entire shred directory.")
+                    return
+                else:
+                    shred_file(path, passes=3)
+                    files_shredded = True
+
+            if files_shredded:
+                show_message("Success", "All files have been successfully shredded.")
+                # Reset the UI
+                self.file_path_input.clear()  
+            else:
+                show_message("Cannot Access File", f"`{path}` does not exist or could not be opened. Make sure that the file exists and is not already open.")
+                return
+        except Exception as e:
+            show_message("Error", str(e))
+
 class App(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -1195,7 +1388,7 @@ class App(QMainWindow):
         self.menu_bar.addMenu(self.account_menu)
 
         self.encryption_ui = EncyrptionUI(self, self)
-        self.file_shredder = QWidget()
+        self.file_shredder = ShredderUI(self, self)
 
         self.tab_bar = QTabWidget()
         self.tab_bar.addTab(self.encryption_ui, "Encrypt/Decrypt")
