@@ -23,7 +23,7 @@ from PyQt6.QtGui import QAction, QIcon, QPixmap
 from PyQt6.QtWidgets import (QApplication, QCheckBox, QDialog, QFileDialog,
                              QFormLayout, QFrame, QHBoxLayout, QLabel,
                              QLineEdit, QMainWindow, QMenu, QMessageBox,
-                             QPushButton, QVBoxLayout, QWidget)
+                             QTabBar, QTabWidget, QPushButton, QVBoxLayout, QWidget)
 
 def load_config(config_path, encryption_key):
     try:
@@ -1194,15 +1194,18 @@ class App(QMainWindow):
         # Add 'Account' menu to the menu bar
         self.menu_bar.addMenu(self.account_menu)
 
+        self.encryption_ui = EncyrptionUI(self, self)
+        self.file_shredder = QWidget()
+
+        self.tab_bar = QTabWidget()
+        self.tab_bar.addTab(self.encryption_ui, "Encrypt/Decrypt")
+        self.tab_bar.addTab(self.file_shredder, "File Shredder")
+
+        self.setCentralWidget(self.tab_bar)
+
         self.resize(600, 750)
-
-        self.central_widget = EncyrptionUI(self, self)
-
-        # Set the central widget to the QMainWindow
-        self.setCentralWidget(self.central_widget)
-
+        
         self.show()
-    
 
         self.setup_periodic_license_check() # Initiate a check every 15 minutes to see if a signed in user has a valid license
 
