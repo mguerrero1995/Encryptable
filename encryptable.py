@@ -1286,9 +1286,9 @@ class ShredderUI(QWidget):
             show_message("Error", "Please enter a valid file path.")
             return
         
-        # If a non-Pro user attempts to encrypt/decrypt multiple files or a folder, notify them that this feature is for Pro users only.
+        # If a non-Pro user attempts to shred multiple files or a folder, notify them that this feature is for Pro users only.
         if not self.app_instance.is_current_user_pro and (len(fls) > 1 or any(os.path.isdir(path) for path in fls)):
-            QMessageBox.warning(self, "Pro Feature", "Batch shredding is only available for Pro users. If you'd like to encrypt multiple files at once, " 
+            QMessageBox.warning(self, "Pro Feature", "Batch/folder shredding is only available for Pro users. If you'd like to shred multiple files at once, " 
                                                     "please purchase a Pro license on our website (https://encryptable.app).")
             return
         
@@ -1299,7 +1299,7 @@ class ShredderUI(QWidget):
         if shred_response != QMessageBox.StandardButton.Yes:
             return
         
-        # Check the size of the encryption job. If it is more than 100MB, prompt the user to continue.
+        # Check the size of the shredding job. If it is more than 100MB, prompt the user to continue.
         total_size = self.get_job_size(fls)
         
         if total_size > self.JOB_SIZE_LIMIT:
