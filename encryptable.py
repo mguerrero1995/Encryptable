@@ -1060,7 +1060,7 @@ class EncyrptionUI(QWidget):
             show_message("Pro Feature Only", "Advanced configurations are only available to Pro users. "
                                             "Please purchase a Pro license on our website to access advanced configurations (https://encryptable.app).")
             return
-        self.advanced_config_dialog = AdvancedConfigurations(self, self)
+        self.advanced_config_dialog = AdvancedEncryptionConfigurations(self, self)
         self.advanced_config_dialog.setWindowTitle("Advanced Configurations")
 
         # Initialize configurations or set to current settings
@@ -1095,7 +1095,7 @@ class DropZone(QLabel):
         self.parent().file_path_input.setText(formatted_paths)  # Update the QLineEdit with the formatted file paths
         
 
-class AdvancedConfigurations(QDialog):
+class AdvancedEncryptionConfigurations(QDialog):
     def __init__(self, parent, encryption_ui):
         super().__init__(parent)
         self.encryption_ui = encryption_ui
@@ -1316,7 +1316,7 @@ class ShredderUI(QWidget):
         try:
             for path in fls:
                 if os.path.isdir(path):
-                    show_message("Dangerous Activity", "Cannot entire shred directory.")
+                    show_message("Dangerous Activity", "Cannot entire shred directory. Please select individual files or a list of files.")
                     return
                 else:
                     shred_file(path, passes=3)
