@@ -109,15 +109,15 @@ def encrypt_file(file_path, password, email):
             f.write(salt + iv + ciphertext)
         
         # Write the encryption metadata to the database if a user is logged in
-        if email:
-            try:
-                with sqlite3.connect(LOCAL_DB_CONN) as conn:
-                    cur = conn.cursor()
-                    cur.execute("INSERT INTO encrypted_files (email, file_name, encryption_signature, encrypted_date) "
-                                "VALUES (?, ?, ?, ?)", 
-                                (email, os.path.basename(encrypted_file_path), header, datetime.datetime.now()))
-            except Exception as e:
-                show_message("Error", str(e))
+        # if email:
+        #     try:
+        #         with sqlite3.connect(LOCAL_DB_CONN) as conn:
+        #             cur = conn.cursor()
+        #             cur.execute("INSERT INTO encrypted_files (email, file_name, encryption_signature, encrypted_date) "
+        #                         "VALUES (?, ?, ?, ?)", 
+        #                         (email, os.path.basename(encrypted_file_path), header, datetime.datetime.now()))
+        #     except Exception as e:
+        #         show_message("Error", str(e))
     except:
         raise ValueError(f"Encryption failed for {file_path}")
 
@@ -160,14 +160,14 @@ def decrypt_file(file_path, password, email):
             f.write(plaintext)
 
         # Delete the encryption metadata from the database if a user is logged in
-        if email:
-            try:
-                with sqlite3.connect(LOCAL_DB_CONN) as conn:
-                    cur = conn.cursor()
-                    cur.execute("DELETE FROM encrypted_files WHERE email = ? AND file_name = ?", 
-                                (email, os.path.basename(file_path)))
-            except Exception as e:
-                show_message("Error", str(e))
+        # if email:
+        #     try:
+        #         with sqlite3.connect(LOCAL_DB_CONN) as conn:
+        #             cur = conn.cursor()
+        #             cur.execute("DELETE FROM encrypted_files WHERE email = ? AND file_name = ?", 
+        #                         (email, os.path.basename(file_path)))
+        #     except Exception as e:
+        #         show_message("Error", str(e))
     except: 
         raise ValueError(f"Decryption failed for {file_path} due to an incorrect password.") 
 
@@ -1385,7 +1385,7 @@ class App(QMainWindow):
         self.account_menu.addAction(self.set_free_action)
 
         # Add 'Account' menu to the menu bar
-        self.menu_bar.addMenu(self.account_menu)
+        # self.menu_bar.addMenu(self.account_menu)
 
         self.encryption_ui = EncyrptionUI(self, self)
         self.file_shredder = ShredderUI(self, self)
