@@ -57,7 +57,7 @@ APP_VERSION_MAJOR = int(APP_VERSION[0]) # First number (int)
 APP_VERSION_MINOR = int(APP_VERSION[2]) # Second number (int)
 APP_VERSION_PATCH = int(APP_VERSION[-1]) # Third (last) number (int)
 
-IS_PRO_USER = bool(config_data["application"]["is_pro_version"])
+IS_PRO_USER = True
 
 LOCAL_DB_CONN = config_data["resources"]["database_name"]
 
@@ -1400,7 +1400,7 @@ class App(QMainWindow):
         
         self.show()
 
-        self.setup_periodic_license_check() # Initiate a check every 15 minutes to see if a signed in user has a valid license
+        # self.setup_periodic_license_check() # Initiate a check every 15 minutes to see if a signed in user has a valid license
 
     def setup_periodic_license_check(self):
         # Create a timer
